@@ -1,0 +1,464 @@
+/********************************************************
+ * 
+ ********************************************************/
+%{
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <assert.h>
+#include <list>
+	
+#include "InstructionTree.h"
+
+//-- Lexer prototype required by bison, aka getNextToken()
+extern FILE *yyin;
+int yylex(); 
+int yyerror(const char *p) { printf("Parse error!, \"%s\"\n", p); }
+
+static std::list<Base *> s_statements;
+
+static const char *pSignalNames[16] = {
+		"Breakpoint",
+		"NoSignal",
+		"ThreadSwitch",
+		"ProgramEnd",
+		"ScoreboardWait",
+		"ScoreboardUnlock",
+		"LastThreadSwitch",
+		"CoverageLoad",
+		"ColourLoad",
+		"ColourLoadPe",
+		"LoadTmu0",
+		"LoadTmu1",
+		"AlphaMaskLoad",
+		"SmallImmOrVecRot",
+		"LoadImm",
+		"Branch",
+};
+
+static const char *pAddOpNames[32] = {
+		"addnop",
+		"fadd",
+		"fsub",
+		"fmin",
+		"fmax",
+		"fminabs",
+		"fmaxabs",
+		"ftoi",
+		"itof",
+		"reserved",
+		"reserved",
+		"reserved",
+		"add",
+		"sub",
+		"shr",
+		"asr",
+		"ror",
+		"shl",
+		"min",
+		"max",
+		"and",
+		"or",
+		"xor",
+		"not",
+		"clz",
+		"reserved",
+		"reserved",
+		"reserved",
+		"reserved",
+		"reserved",
+		"addv8adds",
+		"addv8subs",
+};
+
+static const char *pMulOpNames[8] = {
+		"mulnop",
+		"fmul",
+		"mul24",
+		"v8muld",
+		"v8min",
+		"v8max",
+		"mulv8adds",
+		"mulv8subs",
+};
+
+%}
+
+%union {
+  Base *p; 
+};
+%token <p> NUM
+%token <p> OPA OPM LP RP SEMICOLON COMMA
+%type  <p>  res
+%type <p> left right signal addaluop mulaluop adddestreg addrega addregb muldestreg mulrega mulregb ra_reg rb_reg acc_reg smallimm addsecondarg mulsecondarg setflags instcond optinstcond il brcond optabsolute valueorlabel
+
+%token <p> ADDNOP FADD FSUB FMIN FMAX FMINABS FMAXABS FTOI ITOF ADD SUB SHR ASR ROR SHL MIN MAX AND OR XOR NOT CLZ ADDV8ADDS ADDV8SUBSS
+%token <p> MULNOP FMUL MUL24 V8MULD V8MIN V8MAX MULV8ADDS MULV8SUBS
+%token <p> NEVER AL ZS ZC NS NC CS CC
+%token <p> ALLZS ALLZC ANYZS ANYZC ALLNS ALLNC ANYNS ANYNC ALLCS ALLCC ANYCS ANYCC
+%token <p> NOP
+%token <p> IL BR
+%token <p> SEM INC DEC
+%token <p> SETFLAGS ABSOLUTE
+%token <p> BREAKPOINT NOSIGNAL THREADSWITCH PROGRAMEND SCOREBOARDWAIT SCOREBOARDUNLOCK LASTHREADSWITCH COVERAGELOAD COLOURLOAD COLOURLOADPE LOADTMU0 LOADTMU1 ALPHAMASKLOAD SMALLIMMORVECROT LOADIMM BRANCH
+%token <p> RA_REG RB_REG ACC_REG
+%token <p> LABEL_DEF LABEL_TARGET
+%token <p> WORD SHORT BYTE
+
+//-- GRAMMAR RULES ---------------------------------------
+%%
+
+run: res run
+		{
+		}
+	| res
+		{
+		}
+
+res: NOP
+		{
+			AddPipeInstruction *pLeft = new AddPipeInstruction(*new Opcode(kAddNop),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new InstructionCondition(kAlways),
+					false);
+			
+			$$ = new AluInstruction(*pLeft,
+					BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+					AluSignal::DefaultSignal());
+			s_statements.push_back($$);
+		}
+	| signal
+		{
+			AluSignal *pSig = dynamic_cast<AluSignal *>$1;
+			assert(pSig);
+			
+			AddPipeInstruction *pLeft = new AddPipeInstruction(*new Opcode(kAddNop),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new InstructionCondition(kAlways),
+					false);
+			
+			$$ = new AluInstruction(*pLeft,
+					BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+					*pSig);
+			s_statements.push_back($$);
+		}
+	| left
+		{
+			AddPipeInstruction *pLeft = dynamic_cast<AddPipeInstruction *>$1;
+			assert(pLeft);
+			$$ = new AluInstruction(*pLeft,
+					BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+					AluSignal::DefaultSignal());
+			s_statements.push_back($$);
+		}
+	| right
+		{
+			MulPipeInstruction *pRight = dynamic_cast<MulPipeInstruction *>$1;
+			assert(pRight);
+			$$ = new AluInstruction(BasePipeInstruction::GenerateCompatibleInstruction(*pRight),
+					*pRight,
+					AluSignal::DefaultSignal());
+			s_statements.push_back($$);
+		}
+	| left SEMICOLON right
+		{
+			AddPipeInstruction *pLeft = dynamic_cast<AddPipeInstruction *>$1;
+			MulPipeInstruction *pRight = dynamic_cast<MulPipeInstruction *>$3;
+			assert(pLeft);
+			assert(pRight);
+			$$ = new AluInstruction(*pLeft, *pRight, AluSignal::DefaultSignal());
+			s_statements.push_back($$);
+		}
+	| left SEMICOLON signal
+		{
+			AddPipeInstruction *pLeft = dynamic_cast<AddPipeInstruction *>$1;
+			AluSignal *pSig = dynamic_cast<AluSignal *>$3;
+			
+			assert(pLeft);
+			assert(pSig);
+			
+			$$ = new AluInstruction(*pLeft,
+					BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+					*pSig);
+			s_statements.push_back($$);
+		}
+	| right SEMICOLON signal
+		{
+			MulPipeInstruction *pRight = dynamic_cast<MulPipeInstruction *>$1;
+			AluSignal *pSig = dynamic_cast<AluSignal *>$3;
+			
+			assert(pRight);
+			assert(pSig);
+			
+			$$ = new AluInstruction(BasePipeInstruction::GenerateCompatibleInstruction(*pRight),
+					*pRight, *pSig);
+			s_statements.push_back($$);
+		}
+	| left SEMICOLON right SEMICOLON signal
+		{
+			AddPipeInstruction *pLeft = dynamic_cast<AddPipeInstruction *>$1;
+			MulPipeInstruction *pRight = dynamic_cast<MulPipeInstruction *>$3;
+			AluSignal *pSig = dynamic_cast<AluSignal *>$5;
+			
+			assert(pLeft);
+			assert(pRight);
+			assert(pSig);
+			
+			$$ = new AluInstruction(*pLeft, *pRight, *pSig);
+			s_statements.push_back($$);
+		}
+| il
+		{
+			IlInstruction *p = dynamic_cast<IlInstruction *>$1;
+			assert(p);
+			s_statements.push_back(p);
+		}
+| il SEMICOLON il
+		{
+			IlInstruction *p1 = dynamic_cast<IlInstruction *>$1;
+			IlInstruction *p2 = dynamic_cast<IlInstruction *>$3;
+			
+			assert(p1);
+			assert(p2);
+			
+			s_statements.push_back(p1);
+			s_statements.push_back(p2);
+		}
+| SEM NUM COMMA INC
+		{
+			Value *p = dynamic_cast<Value *>$2;
+			SemInstruction *s = new SemInstruction(*p, SemInstruction::kInc);
+			s_statements.push_back(s);
+		}
+| SEM NUM COMMA DEC
+		{
+			Value *p = dynamic_cast<Value *>$2;
+			SemInstruction *s = new SemInstruction(*p, SemInstruction::kDec);
+			s_statements.push_back(s);
+		}
+| BR optabsolute brcond adddestreg COMMA muldestreg COMMA addrega
+		{
+			Value *pAbs = dynamic_cast<Value *>$2;
+			BrCondition *pCond = dynamic_cast<BrCondition *>$3;
+			Register *pDestA = dynamic_cast<Register *>$4;
+			Register *pDestM = dynamic_cast<Register *>$6;
+			Register *pSource = dynamic_cast<Register *>$8;
+			
+			assert(pAbs);
+			assert(pCond);
+			assert(pDestA);
+			assert(pDestM);
+			assert(pSource);
+			
+			assert(pAbs->m_value == 1 || pAbs->m_value == 0);
+			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
+					*pCond, *pDestA, *pDestM, *pSource,
+					*new Value(0));
+			s_statements.push_back(b);
+		}
+| BR optabsolute brcond adddestreg COMMA muldestreg COMMA addrega COMMA NUM
+		{
+			Value *pAbs = dynamic_cast<Value *>$2;
+			BrCondition *pCond = dynamic_cast<BrCondition *>$3;
+			Register *pDestA = dynamic_cast<Register *>$4;
+			Register *pDestM = dynamic_cast<Register *>$6;
+			Register *pSource = dynamic_cast<Register *>$8;
+			Value *pImm = dynamic_cast<Value *>$10;
+			
+			assert(pAbs);
+			assert(pCond);
+			assert(pDestA);
+			assert(pDestM);
+			assert(pSource);
+			assert(pImm);
+			
+			assert(pAbs->m_value == 1 || pAbs->m_value == 0);
+			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
+					*pCond, *pDestA, *pDestM, *pSource, *pImm);
+			s_statements.push_back(b);
+		}
+| BR optabsolute brcond adddestreg COMMA muldestreg COMMA valueorlabel
+		{
+			Value *pAbs = dynamic_cast<Value *>$2;
+			BrCondition *pCond = dynamic_cast<BrCondition *>$3;
+			Register *pDestA = dynamic_cast<Register *>$4;
+			Register *pDestM = dynamic_cast<Register *>$6;
+			Value *pImm = dynamic_cast<Value *>$8;
+			
+			assert(pAbs);
+			assert(pCond);
+			assert(pDestA);
+			assert(pDestM);
+			assert(pImm);
+			
+			assert(pAbs->m_value == 1 || pAbs->m_value == 0);
+			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
+					*pCond, *pDestA, *pDestM, *pImm);
+			s_statements.push_back(b);
+		}
+| LABEL_DEF
+		{
+			Label *pLabel = dynamic_cast<Label *>$1;
+			assert(pLabel);
+			s_statements.push_back(pLabel);
+		}
+| WORD NUM
+		{
+			Value *pValue = dynamic_cast<Value *>$2;
+			assert(pValue);
+			pValue->SetSize(4);
+			s_statements.push_back(pValue);
+		}
+| SHORT NUM
+		{
+			Value *pValue = dynamic_cast<Value *>$2;
+			assert(pValue);
+			pValue->SetSize(2);
+			s_statements.push_back(pValue);
+		}
+| BYTE NUM
+		{
+			Value *pValue = dynamic_cast<Value *>$2;
+			assert(pValue);
+			pValue->SetSize(1);
+			s_statements.push_back(pValue);
+		}
+
+valueorlabel: NUM | LABEL_TARGET
+
+signal: BREAKPOINT | NOSIGNAL | THREADSWITCH | PROGRAMEND | SCOREBOARDWAIT | SCOREBOARDUNLOCK | LASTHREADSWITCH | COVERAGELOAD | COLOURLOAD | COLOURLOADPE | LOADTMU0 | LOADTMU1 | ALPHAMASKLOAD | SMALLIMMORVECROT | LOADIMM | BRANCH
+
+addaluop: ADDNOP | FADD | FSUB | FMIN | FMAX | FMINABS | FMAXABS | FTOI | ITOF | ADD | SUB | SHR | ASR | ROR | SHL | MIN | MAX | AND | OR | XOR | NOT | CLZ | ADDV8ADDS | ADDV8SUBSS
+
+mulaluop: MULNOP | FMUL | MUL24 | V8MULD | V8MIN | V8MAX | MULV8ADDS | MULV8SUBS
+
+left: addaluop setflags optinstcond adddestreg COMMA addrega COMMA addsecondarg
+	{
+		Opcode *pOp = dynamic_cast<Opcode *>$1;
+		Value *pFlags = dynamic_cast<Value *>$2;
+		InstructionCondition *pCc = dynamic_cast<InstructionCondition *>$3;
+		Register *pDest = dynamic_cast<Register *>$4;
+		Register *pSource1 = dynamic_cast<Register *>$6;
+		SecondSource *pSource2 = dynamic_cast<SecondSource *>$8;
+		
+		assert(pOp);
+		assert(pFlags);
+		assert(pCc);
+		assert(pDest);
+		assert(pSource1);
+		assert(pSource2);
+		assert(pFlags->m_value == 1 || pFlags->m_value == 0);
+		
+		$$ = new AddPipeInstruction(*pOp, *pDest, *pSource1, *pSource2,
+				*pCc,
+				pFlags->m_value ? true : false);
+	}
+
+right: mulaluop setflags optinstcond muldestreg COMMA mulrega COMMA mulsecondarg
+	{
+		Opcode *pOp = dynamic_cast<Opcode *>$1;
+		Value *pFlags = dynamic_cast<Value *>$2;
+		InstructionCondition *pCc = dynamic_cast<InstructionCondition *>$3;
+		Register *pDest = dynamic_cast<Register *>$4;
+		Register *pSource1 = dynamic_cast<Register *>$6;
+		SecondSource *pSource2 = dynamic_cast<SecondSource *>$8;
+		
+		assert(pOp);
+		assert(pFlags);
+		assert(pCc);
+		assert(pDest);
+		assert(pSource1);
+		assert(pSource2);
+		assert(pFlags->m_value == 1 || pFlags->m_value == 0);
+		
+		$$ = new MulPipeInstruction(*pOp, *pDest, *pSource1, *pSource2,
+				*pCc,
+				pFlags->m_value ? true : false);
+	}
+
+il: IL setflags optinstcond adddestreg COMMA NUM
+	{
+		Value *pFlags = dynamic_cast<Value *>$2;
+		InstructionCondition *pCc = dynamic_cast<InstructionCondition *>$3;
+		Register *pDest = dynamic_cast<Register *>$4;
+		Value *pImm = dynamic_cast<Value *>$6;
+		
+		assert(pFlags);
+		assert(pCc);
+		assert(pDest);
+		assert(pImm);
+		assert(pFlags->m_value == 1 || pFlags->m_value == 0);
+		
+		$$ = new IlInstruction(*pDest, *pImm, *pCc,
+				pFlags->m_value ? true : false);
+	}
+
+addsecondarg: addregb
+| smallimm
+	{
+		Value *pImm = dynamic_cast<Value *>$1;
+		assert(pImm);
+		$$ = new SmallImm(*pImm);
+	}
+
+mulsecondarg: mulregb
+| smallimm
+	{
+		Value *pImm = dynamic_cast<Value *>$1;
+		assert(pImm);
+		$$ = new SmallImm(*pImm);
+	}
+
+adddestreg: ra_reg | rb_reg | acc_reg
+
+muldestreg: ra_reg | rb_reg | acc_reg
+
+addrega: ra_reg | rb_reg | acc_reg
+
+addregb: ra_reg | rb_reg | acc_reg
+
+mulrega: ra_reg | rb_reg | acc_reg
+
+mulregb: ra_reg | rb_reg | acc_reg
+
+acc_reg: ACC_REG
+
+ra_reg: RA_REG
+
+rb_reg: RB_REG
+
+smallimm: NUM
+
+setflags: SETFLAGS		{ $$ = new Value(1); }
+|						{ $$ = new Value(0); }
+
+instcond: NEVER | AL | ZS | ZC | NS | NC | CS | CC
+
+brcond: ALLZS | ALLZC | ANYZS | ANYZC | ALLNS | ALLNC | ANYNS | ANYNC | ALLCS | ALLCC | ANYCS | ANYCC
+|						{ $$ = new BrCondition(kAlwaysBr); }
+
+optinstcond: instcond
+|						{ $$ = new InstructionCondition(kAlways); }
+
+optabsolute: ABSOLUTE	{ $$ = new Value(1); }
+|						{ $$ = new Value(0); }
+
+%%
+//-- FUNCTION DEFINITIONS ---------------------------------
+int main(int argc, const char *argv[])
+{
+	if (argc == 2)
+		yyin = fopen(argv[1], "r");
+
+	yyparse();
+	
+	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
+		(*it)->DebugPrint(0);
+	
+return 0;
+}
+
