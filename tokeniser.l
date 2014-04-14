@@ -10,7 +10,24 @@ using namespace std;
 
 %%
 
-[0-9]+   { yylval.p = new Value(atoi(yytext)); return NUM; }
+"1\.0"		{ yylval.p = new Value(1, 1); return NUM; }
+"2\.0"		{ yylval.p = new Value(2, 1); return NUM; }
+"4\.0"		{ yylval.p = new Value(4, 1); return NUM; }
+"8\.0"		{ yylval.p = new Value(8, 1); return NUM; }
+"16\.0"		{ yylval.p = new Value(16, 1); return NUM; }
+"32\.0"		{ yylval.p = new Value(32, 1); return NUM; }
+"64\.0"		{ yylval.p = new Value(64, 1); return NUM; }
+"128\.0"		{ yylval.p = new Value(128, 1); return NUM; }
+"1/256"		{ yylval.p = new Value(1, 256); return NUM; }
+"1/128"		{ yylval.p = new Value(1, 128); return NUM; }
+"1/64"		{ yylval.p = new Value(1, 64); return NUM; }
+"1/32"		{ yylval.p = new Value(1, 32); return NUM; }
+"1/16"		{ yylval.p = new Value(1, 16); return NUM; }
+"1/8"		{ yylval.p = new Value(1, 8); return NUM; }
+"1/4"		{ yylval.p = new Value(1, 4); return NUM; }
+"1/2"		{ yylval.p = new Value(1, 2); return NUM; }
+
+[0-9]+		{ yylval.p = new Value(atoi(yytext)); return NUM; }
 0x[0-9a-f]+   { yylval.p = new Value(strtol(yytext + 2, 0 , 16)); return NUM; }
 \-[0-9]+   { yylval.p = new Value(atoi(yytext)); return NUM; }
 ";"      { return SEMICOLON; }

@@ -46,12 +46,18 @@ class Value : public Base
 {
 public:
 	Value(int);
+	Value(int numerator, int denominator);
 	virtual ~Value();
 
 	virtual void DebugPrint(int depth);
 	virtual void SetSize(int byteCount);
 
+	virtual int GetIntValue(void);
+
+protected:
 	int m_value;
+	int m_num, m_denom;
+
 	int m_byteCount;
 };
 

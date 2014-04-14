@@ -254,8 +254,8 @@ res: NOP
 			assert(pDestM);
 			assert(pSource);
 			
-			assert(pAbs->m_value == 1 || pAbs->m_value == 0);
-			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
+			assert(pAbs->GetIntValue() == 1 || pAbs->GetIntValue() == 0);
+			BranchInstruction *b = new BranchInstruction(pAbs->GetIntValue() ? true : false,
 					*pCond, *pDestA, *pDestM, *pSource,
 					*new Value(0));
 			s_statements.push_back(b);
@@ -278,8 +278,8 @@ res: NOP
 			assert(pSource);
 			assert(pImm);
 			
-			assert(pAbs->m_value == 1 || pAbs->m_value == 0);
-			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
+			assert(pAbs->GetIntValue() == 1 || pAbs->GetIntValue() == 0);
+			BranchInstruction *b = new BranchInstruction(pAbs->GetIntValue() ? true : false,
 					*pCond, *pDestA, *pDestM, *pSource, *pImm);
 			s_statements.push_back(b);
 			
@@ -299,8 +299,8 @@ res: NOP
 			assert(pDestM);
 			assert(pImm);
 			
-			assert(pAbs->m_value == 1 || pAbs->m_value == 0);
-			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
+			assert(pAbs->GetIntValue() == 1 || pAbs->GetIntValue() == 0);
+			BranchInstruction *b = new BranchInstruction(pAbs->GetIntValue() ? true : false,
 					*pCond, *pDestA, *pDestM, *pImm);
 			s_statements.push_back(b);
 			
@@ -357,11 +357,11 @@ left: addaluop setflags optinstcond adddestreg COMMA addrega COMMA addsecondarg
 		assert(pDest);
 		assert(pSource1);
 		assert(pSource2);
-		assert(pFlags->m_value == 1 || pFlags->m_value == 0);
+		assert(pFlags->GetIntValue() == 1 || pFlags->GetIntValue() == 0);
 		
 		$$ = new AddPipeInstruction(*pOp, *pDest, *pSource1, *pSource2,
 				*pCc,
-				pFlags->m_value ? true : false);
+				pFlags->GetIntValue() ? true : false);
 		
 		delete pFlags;
 	}
@@ -381,11 +381,11 @@ right: mulaluop setflags optinstcond muldestreg COMMA mulrega COMMA mulsecondarg
 		assert(pDest);
 		assert(pSource1);
 		assert(pSource2);
-		assert(pFlags->m_value == 1 || pFlags->m_value == 0);
+		assert(pFlags->GetIntValue() == 1 || pFlags->GetIntValue() == 0);
 		
 		$$ = new MulPipeInstruction(*pOp, *pDest, *pSource1, *pSource2,
 				*pCc,
-				pFlags->m_value ? true : false);
+				pFlags->GetIntValue() ? true : false);
 		
 		delete pFlags;
 	}
@@ -401,10 +401,10 @@ il: IL setflags optinstcond adddestreg COMMA NUM
 		assert(pCc);
 		assert(pDest);
 		assert(pImm);
-		assert(pFlags->m_value == 1 || pFlags->m_value == 0);
+		assert(pFlags->GetIntValue() == 1 || pFlags->GetIntValue() == 0);
 		
 		$$ = new IlInstruction(*pDest, *pImm, *pCc,
-				pFlags->m_value ? true : false);
+				pFlags->GetIntValue() ? true : false);
 		
 		delete pFlags;
 	}
