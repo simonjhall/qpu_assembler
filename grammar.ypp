@@ -259,6 +259,8 @@ res: NOP
 					*pCond, *pDestA, *pDestM, *pSource,
 					*new Value(0));
 			s_statements.push_back(b);
+			
+			delete pAbs;
 		}
 | BR optabsolute brcond adddestreg COMMA muldestreg COMMA addrega COMMA NUM
 		{
@@ -280,6 +282,8 @@ res: NOP
 			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
 					*pCond, *pDestA, *pDestM, *pSource, *pImm);
 			s_statements.push_back(b);
+			
+			delete pAbs;
 		}
 | BR optabsolute brcond adddestreg COMMA muldestreg COMMA valueorlabel
 		{
@@ -299,6 +303,8 @@ res: NOP
 			BranchInstruction *b = new BranchInstruction(pAbs->m_value ? true : false,
 					*pCond, *pDestA, *pDestM, *pImm);
 			s_statements.push_back(b);
+			
+			delete pAbs;
 		}
 | LABEL_DEF
 		{
@@ -356,6 +362,8 @@ left: addaluop setflags optinstcond adddestreg COMMA addrega COMMA addsecondarg
 		$$ = new AddPipeInstruction(*pOp, *pDest, *pSource1, *pSource2,
 				*pCc,
 				pFlags->m_value ? true : false);
+		
+		delete pFlags;
 	}
 
 right: mulaluop setflags optinstcond muldestreg COMMA mulrega COMMA mulsecondarg
@@ -378,6 +386,8 @@ right: mulaluop setflags optinstcond muldestreg COMMA mulrega COMMA mulsecondarg
 		$$ = new MulPipeInstruction(*pOp, *pDest, *pSource1, *pSource2,
 				*pCc,
 				pFlags->m_value ? true : false);
+		
+		delete pFlags;
 	}
 
 il: IL setflags optinstcond adddestreg COMMA NUM
@@ -395,6 +405,8 @@ il: IL setflags optinstcond adddestreg COMMA NUM
 		
 		$$ = new IlInstruction(*pDest, *pImm, *pCc,
 				pFlags->m_value ? true : false);
+		
+		delete pFlags;
 	}
 
 addsecondarg: addregb
