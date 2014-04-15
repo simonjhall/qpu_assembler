@@ -9,6 +9,7 @@
 #define INSTRUCTIONTREE_H_
 
 #include "shared.h"
+#include <list>
 
 class Base
 {
@@ -16,6 +17,31 @@ public:
 	Base();
 	virtual ~Base();
 	virtual void DebugPrint(int depth);
+};
+
+class Assemblable
+{
+public:
+	Assemblable();
+	virtual ~Assemblable();
+
+	struct Field
+	{
+		inline Field(int position, int size, int value)
+		: m_position(position),
+		  m_size(size),
+		  m_value(value)
+		{
+		};
+
+		int m_position;
+		int m_size;
+		int m_value;
+	};
+
+	typedef std::list<Field> Fields;
+
+	virtual void Assemble(Fields &rFields);
 };
 
 class InstructionCondition : public Base
@@ -61,7 +87,7 @@ protected:
 	int m_byteCount;
 };
 
-class Instruction : public Base
+class Instruction : public Base, Assemblable
 {
 public:
 	Instruction();

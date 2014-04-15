@@ -13,74 +13,9 @@
 //-- Lexer prototype required by bison, aka getNextToken()
 extern FILE *yyin;
 int yylex(); 
-int yyerror(const char *p) { printf("Parse error!, \"%s\"\n", p); }
+int yyerror(const char *p) { printf("Parse error!, \"%s\"\n", p); return 0; }
 
 static std::list<Base *> s_statements;
-
-static const char *pSignalNames[16] = {
-		"Breakpoint",
-		"NoSignal",
-		"ThreadSwitch",
-		"ProgramEnd",
-		"ScoreboardWait",
-		"ScoreboardUnlock",
-		"LastThreadSwitch",
-		"CoverageLoad",
-		"ColourLoad",
-		"ColourLoadPe",
-		"LoadTmu0",
-		"LoadTmu1",
-		"AlphaMaskLoad",
-		"SmallImmOrVecRot",
-		"LoadImm",
-		"Branch",
-};
-
-static const char *pAddOpNames[32] = {
-		"addnop",
-		"fadd",
-		"fsub",
-		"fmin",
-		"fmax",
-		"fminabs",
-		"fmaxabs",
-		"ftoi",
-		"itof",
-		"reserved",
-		"reserved",
-		"reserved",
-		"add",
-		"sub",
-		"shr",
-		"asr",
-		"ror",
-		"shl",
-		"min",
-		"max",
-		"and",
-		"or",
-		"xor",
-		"not",
-		"clz",
-		"reserved",
-		"reserved",
-		"reserved",
-		"reserved",
-		"reserved",
-		"addv8adds",
-		"addv8subs",
-};
-
-static const char *pMulOpNames[8] = {
-		"mulnop",
-		"fmul",
-		"mul24",
-		"v8muld",
-		"v8min",
-		"v8max",
-		"mulv8adds",
-		"mulv8subs",
-};
 
 %}
 

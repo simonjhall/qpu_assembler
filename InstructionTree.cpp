@@ -299,3 +299,4 @@ Label::Label(const char* pName, bool definition)
 Label::~Label()
 {
 }
+
