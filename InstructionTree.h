@@ -87,7 +87,7 @@ protected:
 	int m_byteCount;
 };
 
-class Instruction : public Base, Assemblable
+class Instruction : public Base, public Assemblable
 {
 public:
 	Instruction();
@@ -214,6 +214,8 @@ class AluInstruction : public Instruction
 public:
 	AluInstruction(AddPipeInstruction &, MulPipeInstruction &, AluSignal &);
 	virtual ~AluInstruction();
+
+	virtual void Assemble(Fields &rFields);
 
 	virtual void DebugPrint(int depth);
 

@@ -15,7 +15,7 @@ extern FILE *yyin;
 int yylex(); 
 int yyerror(const char *p) { printf("Parse error!, \"%s\"\n", p); return 0; }
 
-static std::list<Base *> s_statements;
+std::list<Base *> s_statements;
 
 %}
 
@@ -396,16 +396,3 @@ optabsolute: ABSOLUTE	{ $$ = new Value(1); }
 
 %%
 //-- FUNCTION DEFINITIONS ---------------------------------
-int main(int argc, const char *argv[])
-{
-	if (argc == 2)
-		yyin = fopen(argv[1], "r");
-
-	yyparse();
-	
-	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
-		(*it)->DebugPrint(0);
-	
-return 0;
-}
-
