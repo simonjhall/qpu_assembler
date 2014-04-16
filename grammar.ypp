@@ -56,7 +56,7 @@ res: NOP
 					*new Register(Register::kAcc, 0),
 					*new Register(Register::kAcc, 0),
 					*new Register(Register::kAcc, 0),
-					*new InstructionCondition(kAlways),
+					*new InstructionCondition(kNever),
 					false);
 			
 			$$ = new AluInstruction(*pLeft,

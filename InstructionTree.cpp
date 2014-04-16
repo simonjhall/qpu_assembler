@@ -150,15 +150,15 @@ AluSignal::~AluSignal()
 MulPipeInstruction& BasePipeInstruction::GenerateCompatibleInstruction(
 		AddPipeInstruction& rValid)
 {
-	return *new MulPipeInstruction(*new Opcode(kMulNop), rValid.m_rDest, rValid.m_rSource1, rValid.m_rSource2,
-			*new InstructionCondition(kAlways), false);
+	return *new MulPipeInstruction(*new Opcode(kMulNop), *new Register(Register::kAcc, 0), rValid.m_rSource1, rValid.m_rSource2,
+			*new InstructionCondition(kNever), false);
 }
 
 AddPipeInstruction& BasePipeInstruction::GenerateCompatibleInstruction(
 		MulPipeInstruction& rValid)
 {
-	return *new AddPipeInstruction(*new Opcode(kAddNop), rValid.m_rDest, rValid.m_rSource1, rValid.m_rSource2,
-			*new InstructionCondition(kAlways), false);
+	return *new AddPipeInstruction(*new Opcode(kAddNop), *new Register(Register::kAcc, 0), rValid.m_rSource1, rValid.m_rSource2,
+			*new InstructionCondition(kNever), false);
 }
 
 AluSignal& AluSignal::DefaultSignal(void)

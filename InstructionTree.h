@@ -10,6 +10,7 @@
 
 #include "shared.h"
 #include <list>
+#include <stdint.h>
 
 class Base
 {
@@ -34,15 +35,17 @@ public:
 		{
 		};
 
-		unsigned int m_position;
-		unsigned int m_mask;
-		unsigned int m_value;
+		uint64_t m_position;
+		uint64_t m_mask;
+		uint64_t m_value;
 	};
 
 	typedef std::list<Field> Fields;
 
 	virtual void Assemble(Fields &rFields);
 	virtual unsigned int GetEncodedValue(void);
+
+	static uint64_t CombineFields(Fields &rFields);
 };
 
 class InstructionCondition : public Base, public Assemblable
@@ -58,13 +61,14 @@ private:
 	ConditionCode m_condition;
 };
 
-class BrCondition : public Base
+class BrCondition : public Base, public Assemblable
 {
 public:
 	BrCondition(BranchCondition);
 	virtual ~BrCondition();
 
 	virtual void DebugPrint(int depth);
+	virtual unsigned int GetEncodedValue(void);
 
 private:
 	BranchCondition m_condition;
@@ -150,6 +154,7 @@ public:
 
 	virtual void DebugPrint(int depth);
 	virtual void Assemble(Fields &rFields);
+	virtual unsigned int GetEncodedValue(void);
 
 private:
 	AddOp m_leftOp;
@@ -169,6 +174,14 @@ public:
 	virtual ~BasePipeInstruction();
 
 	virtual void DebugPrint(int depth);
+	inline bool IsNopOrNever(void)
+	{
+		//todo do a nicer job here
+		if (m_rOpcode.GetEncodedValue() == 0 || m_rCondition.GetEncodedValue() == 0)
+			return true;
+		else
+			return false;
+	}
 
 	static MulPipeInstruction &GenerateCompatibleInstruction(AddPipeInstruction &);
 	static AddPipeInstruction &GenerateCompatibleInstruction(MulPipeInstruction &);
@@ -245,6 +258,7 @@ public:
 	virtual ~IlInstruction();
 
 	virtual void DebugPrint(int depth);
+	virtual void Assemble(Fields &rFields);
 
 private:
 	Register &m_rDest;
@@ -253,7 +267,7 @@ private:
 	bool m_setFlags;
 };
 
-class SemInstruction : public Base
+class SemInstruction : public Instruction
 {
 public:
 	enum Operation
@@ -265,13 +279,14 @@ public:
 	virtual ~SemInstruction();
 
 	virtual void DebugPrint(int depth);
+	virtual void Assemble(Fields &rFields);
 
 private:
 	Value &m_rSemId;
 	Operation m_op;
 };
 
-class BranchInstruction : public Base
+class BranchInstruction : public Instruction
 {
 public:
 	BranchInstruction(bool absolute, BrCondition &, Register &, Register &, Register &, Value &);
@@ -279,6 +294,7 @@ public:
 	virtual ~BranchInstruction();
 
 	virtual void DebugPrint(int depth);
+	virtual void Assemble(Fields &rFields);
 
 private:
 	bool m_absolute;

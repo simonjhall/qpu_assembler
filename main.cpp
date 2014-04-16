@@ -30,6 +30,9 @@ int main(int argc, const char *argv[])
 		{
 			Assemblable::Fields f;
 			p->Assemble(f);
+
+			uint64_t output = Assemblable::CombineFields(f);
+			printf("0x%08lx, 0x%08lx,\n", output & 0xffffffff, output >> 32);
 		}
 	}
 
