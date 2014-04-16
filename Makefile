@@ -1,5 +1,5 @@
 CXX=g++
-CFLAGS=-Wall -I ~/git/qpu -Wfatal-errors --std=c++11
+CFLAGS=-Wall -I ~/git/qpu -Wfatal-errors --std=c++11 -g
 
 all: myass
 

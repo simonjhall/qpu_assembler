@@ -27,30 +27,32 @@ public:
 
 	struct Field
 	{
-		inline Field(int position, int size, int value)
+		inline Field(unsigned int position, unsigned int mask, unsigned int value)
 		: m_position(position),
-		  m_size(size),
+		  m_mask(mask),
 		  m_value(value)
 		{
 		};
 
-		int m_position;
-		int m_size;
-		int m_value;
+		unsigned int m_position;
+		unsigned int m_mask;
+		unsigned int m_value;
 	};
 
 	typedef std::list<Field> Fields;
 
 	virtual void Assemble(Fields &rFields);
+	virtual unsigned int GetEncodedValue(void);
 };
 
-class InstructionCondition : public Base
+class InstructionCondition : public Base, public Assemblable
 {
 public:
 	InstructionCondition(ConditionCode);
 	virtual ~InstructionCondition();
 
 	virtual void DebugPrint(int depth);
+	virtual unsigned int GetEncodedValue(void);
 
 private:
 	ConditionCode m_condition;
@@ -70,6 +72,7 @@ private:
 
 class Value : public Base
 {
+	friend class SmallImm;
 public:
 	Value(int);
 	Value(int numerator, int denominator);
@@ -116,24 +119,28 @@ public:
 	virtual ~Register();
 	virtual void DebugPrint(int depth);
 
+	inline Location GetLocation(void) { return m_loc; }
+	inline int GetId(void) { return m_id; }
+
 private:
 	Location m_loc;
 	int m_id;
 };
 
-class SmallImm : public SecondSource
+class SmallImm : public SecondSource, public Assemblable
 {
 public:
 	SmallImm(Value &);
 	virtual ~SmallImm();
 
 	virtual void DebugPrint(int depth);
+	virtual unsigned int GetEncodedValue(void);
 
 private:
 	Value &m_rValue;
 };
 
-class Opcode : public Base
+class Opcode : public Base, public Assemblable
 {
 public:
 	Opcode(AddOp);
@@ -142,6 +149,7 @@ public:
 	virtual ~Opcode();
 
 	virtual void DebugPrint(int depth);
+	virtual void Assemble(Fields &rFields);
 
 private:
 	AddOp m_leftOp;
@@ -154,7 +162,7 @@ class AddPipeInstruction;
 class MulPipeInstruction;
 class AluSignal;
 
-class BasePipeInstruction : public Base
+class BasePipeInstruction : public Base, public Assemblable
 {
 public:
 	BasePipeInstruction(Opcode &, Register &, Register &, SecondSource &, InstructionCondition &, bool setFlags);
@@ -168,6 +176,8 @@ public:
 	static bool AreCompatible(AddPipeInstruction &, MulPipeInstruction &, AluSignal &);
 
 protected:
+	void AssembleAs(Fields &rFields, bool aluPipe);
+
 	Opcode &m_rOpcode;
 	Register &m_rDest;
 	Register &m_rSource1;
@@ -182,6 +192,7 @@ public:
 	AddPipeInstruction(Opcode &, Register &, Register &, SecondSource &, InstructionCondition &, bool setFlags);
 	virtual ~AddPipeInstruction();
 
+	virtual void Assemble(Fields &rFields);
 private:
 };
 
@@ -191,17 +202,19 @@ public:
 	MulPipeInstruction(Opcode &, Register &, Register &, SecondSource &, InstructionCondition&, bool setFlags);
 	virtual ~MulPipeInstruction();
 
+	virtual void Assemble(Fields &rFields);
 private:
 };
 
 
-class AluSignal : public Base
+class AluSignal : public Base, public Assemblable
 {
 public:
 	AluSignal(Signal);
 	virtual ~AluSignal();
 
 	virtual void DebugPrint(int depth);
+	virtual unsigned int GetEncodedValue(void);
 
 	static AluSignal &DefaultSignal(void);
 
