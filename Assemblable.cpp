@@ -360,7 +360,7 @@ unsigned int InstructionCondition::GetEncodedValue(void)
 	return (unsigned int)m_condition;
 }
 
-uint64_t Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes)
+bool Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes, uint64_t &rOutput)
 {
 	unsigned int totalSize = 0;
 	//find the maximum size of the output
@@ -368,7 +368,8 @@ uint64_t Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes)
 		if (it->m_totalSize)
 		{
 			//there should be only one
-			assert(totalSize == 0);
+			if (totalSize != 0)
+				return false;
 			totalSize = it->m_totalSize;
 		}
 
@@ -380,6 +381,9 @@ uint64_t Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes)
 	//walk element and commit to the output;
 	for (auto it = rFields.begin(); it != rFields.end(); it++)
 	{
+		if (it->m_totalSize)
+			continue;
+
 //		printf("field: pos %ld mask %lx value %ld\n", it->m_position, it->m_mask, it->m_value);
 
 		uint64_t new_mask = mask | (it->m_mask << it->m_position);
@@ -389,7 +393,8 @@ uint64_t Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes)
 		{
 			//uh-oh, overlap
 			//hopefully there is no change
-			assert(new_output == output);
+			if (new_output != output)
+				return false;
 
 			mask = new_mask;
 		}
@@ -405,11 +410,13 @@ uint64_t Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes)
 	if (totalSize != 8)
 	{
 		uint64_t masked = output & (((uint64_t)1 << (uint64_t)(totalSize * 8)) - 1);
-		assert(masked == output);
+		if (masked != output)
+			return false;
 	}
 
 	rSizeInBytes = totalSize;
-	return output;
+	rOutput = output;
+	return true;
 }
 
 unsigned int BrCondition::GetEncodedValue(void)

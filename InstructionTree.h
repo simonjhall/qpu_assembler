@@ -52,7 +52,7 @@ public:
 	virtual void Assemble(Fields &rFields);
 	virtual unsigned int GetEncodedValue(void);
 
-	static uint64_t CombineFields(Fields &rFields, unsigned int &rSizeInBytes);
+	static bool CombineFields(Fields &rFields, unsigned int &rSizeInBytes, uint64_t &rOutput);
 };
 
 class InstructionCondition : public Base, public Assemblable
@@ -252,7 +252,7 @@ private:
 class AluInstruction : public Instruction
 {
 public:
-	AluInstruction(AddPipeInstruction &, MulPipeInstruction &, AluSignal &);
+	AluInstruction(AddPipeInstruction &, MulPipeInstruction &, AluSignal &, bool force = false);
 	virtual ~AluInstruction();
 
 	virtual void Assemble(Fields &rFields);

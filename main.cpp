@@ -24,6 +24,8 @@ int main(int argc, const char *argv[])
 	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
 		(*it)->DebugPrint(0);
 
+	unsigned int address = 0;
+
 	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
 	{
 		Assemblable *p = dynamic_cast<Assemblable *>(*it);
@@ -33,7 +35,9 @@ int main(int argc, const char *argv[])
 			p->Assemble(f);
 
 			unsigned int sizeInBytes;
-			uint64_t output = Assemblable::CombineFields(f, sizeInBytes);
+			uint64_t output;
+			if (!Assemblable::CombineFields(f, sizeInBytes, output))
+				assert(!"failed to combine fields\n");
 
 			switch (sizeInBytes)
 			{
@@ -52,6 +56,8 @@ int main(int argc, const char *argv[])
 			default:
 				assert(0);
 			}
+
+			address += sizeInBytes;
 		}
 	}
 

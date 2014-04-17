@@ -105,8 +105,22 @@ res: NOP
 			MulPipeInstruction *pRight = dynamic_cast<MulPipeInstruction *>$3;
 			assert(pLeft);
 			assert(pRight);
-			$$ = new AluInstruction(*pLeft, *pRight, AluSignal::DefaultSignal());
-			s_statements.push_back($$);
+			
+			AluSignal &rSig = AluSignal::DefaultSignal();
+			
+			if (BasePipeInstruction::AreCompatible(*pLeft, *pRight, rSig))
+				s_statements.push_back(new AluInstruction(*pLeft, *pRight, rSig));
+			else
+			{
+				printf("instructions not compatible for dual-issue; being split into two\n");
+				s_statements.push_back(new AluInstruction(*pLeft,
+						BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+						rSig));
+				
+				s_statements.push_back(new AluInstruction(BasePipeInstruction::GenerateCompatibleInstruction(*pRight),
+						*pRight,
+						rSig));
+			}
 		}
 	| left SEMICOLON signal
 		{
@@ -116,10 +130,11 @@ res: NOP
 			assert(pLeft);
 			assert(pSig);
 			
-			$$ = new AluInstruction(*pLeft,
-					BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
-					*pSig);
-			s_statements.push_back($$);
+			MulPipeInstruction &rRight = BasePipeInstruction::GenerateCompatibleInstruction(*pLeft);
+			
+			assert(BasePipeInstruction::AreCompatible(*pLeft, rRight, *pSig));
+			
+			s_statements.push_back(new AluInstruction(*pLeft, rRight, *pSig));
 		}
 	| right SEMICOLON signal
 		{
@@ -143,8 +158,19 @@ res: NOP
 			assert(pRight);
 			assert(pSig);
 			
-			$$ = new AluInstruction(*pLeft, *pRight, *pSig);
-			s_statements.push_back($$);
+			if (BasePipeInstruction::AreCompatible(*pLeft, *pRight, *pSig))
+				s_statements.push_back(new AluInstruction(*pLeft, *pRight, *pSig));
+			else
+			{
+				printf("instructions not compatible for dual-issue; being split into two\n");
+				s_statements.push_back(new AluInstruction(*pLeft,
+						BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+						*pSig));
+				
+				s_statements.push_back(new AluInstruction(BasePipeInstruction::GenerateCompatibleInstruction(*pRight),
+						*pRight,
+						*pSig));
+			}
 		}
 | il
 		{

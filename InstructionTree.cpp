@@ -134,12 +134,14 @@ AluSignal::AluSignal(Signal sig)
 
 
 AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
-		MulPipeInstruction& rRight, AluSignal& rSignal)
+		MulPipeInstruction& rRight, AluSignal& rSignal,
+		bool force)
 : m_rLeft(rLeft),
   m_rRight(rRight),
   m_rSignal(rSignal)
 {
-	assert(BasePipeInstruction::AreCompatible(rLeft, rRight, rSignal));
+	if (!force)
+		assert(BasePipeInstruction::AreCompatible(rLeft, rRight, rSignal));
 }
 
 AluInstruction::~AluInstruction()
@@ -180,7 +182,14 @@ AluSignal& AluSignal::DefaultSignal(void)
 bool BasePipeInstruction::AreCompatible(AddPipeInstruction& rLeft,
 		MulPipeInstruction& rRight, AluSignal &rSignal)
 {
-	return true;
+	AluInstruction i(rLeft, rRight, rSignal, true);
+
+	Fields f;
+	i.Assemble(f);
+
+	unsigned int sizeInBytes;
+	uint64_t output;
+	return Assemblable::CombineFields(f, sizeInBytes, output);
 }
 
 SecondSource::SecondSource()
