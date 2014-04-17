@@ -322,12 +322,20 @@ private:
 class Label : public Value
 {
 public:
-	Label(const char *, bool);
+	Label(const char *, bool isDefinition);
 	virtual ~Label();
 
 	virtual void DebugPrint(int depth);
+	virtual void Assemble(Fields &rFields);
+
+	virtual void SetAddress(unsigned int a);
+	virtual const char *GetName(void);
+	virtual void Link(Label *pDeclared);
 
 private:
+
+	Label *m_pDeclaredLabel;
+
 	static const int sm_maxLengthIncNull = 30;
 	char m_name[sm_maxLengthIncNull];
 };

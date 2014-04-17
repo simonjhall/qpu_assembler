@@ -351,7 +351,7 @@ right: mulaluop setflags optinstcond muldestreg COMMA mulrega COMMA mulsecondarg
 		delete pFlags;
 	}
 
-il: IL setflags optinstcond adddestreg COMMA NUM
+il: IL setflags optinstcond adddestreg COMMA valueorlabel
 	{
 		Value *pFlags = dynamic_cast<Value *>$2;
 		InstructionCondition *pCc = dynamic_cast<InstructionCondition *>$3;

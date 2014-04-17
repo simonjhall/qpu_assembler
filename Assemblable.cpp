@@ -362,6 +362,12 @@ unsigned int InstructionCondition::GetEncodedValue(void)
 
 bool Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes, uint64_t &rOutput)
 {
+	if (rFields.size() == 0)		//nothing to do, eg a label
+	{
+		rSizeInBytes = 0;
+		return true;
+	}
+
 	unsigned int totalSize = 0;
 	//find the maximum size of the output
 	for (auto it = rFields.begin(); it != rFields.end(); it++)
@@ -445,4 +451,27 @@ void Value::Assemble(Fields& rFields)
 	}
 
 	rFields.push_back(Field(m_byteCount));
+}
+
+void Label::SetAddress(unsigned int a)
+{
+	m_value = a;
+}
+
+void Label::Assemble(Fields &rFields)
+{
+	//nothing
+}
+
+const char* Label::GetName(void)
+{
+	return m_name;
+}
+
+void Label::Link(Label* pDeclared)
+{
+	assert(!m_pDeclaredLabel);
+	m_pDeclaredLabel = pDeclared;
+
+	m_value = m_pDeclaredLabel->m_value;
 }

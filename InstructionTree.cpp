@@ -11,6 +11,10 @@
 #include <assert.h>
 #include <string.h>
 
+extern std::list<Label *> s_declaredLabels;
+extern std::list<Label *> s_usedLabels;
+
+
 Base::Base()
 {
 }
@@ -278,7 +282,8 @@ BranchInstruction::~BranchInstruction()
 }
 
 Label::Label(const char* pName, bool definition)
-: Value(0)
+: Value(0),
+  m_pDeclaredLabel(0)
 {
 	if (definition)
 	{
@@ -296,6 +301,8 @@ Label::Label(const char* pName, bool definition)
 
 		if (strlen(pName) + 1 > sm_maxLengthIncNull)
 			printf("label %s exceeds max length, truncating\n", pName);
+
+		s_declaredLabels.push_back(this);
 	}
 	else
 	{
@@ -313,9 +320,12 @@ Label::Label(const char* pName, bool definition)
 
 		if (strlen(pName) > sm_maxLengthIncNull)
 			printf("label %s exceeds max length, truncating\n", pName);
+
+		s_usedLabels.push_back(this);
 	}
 }
 
 Label::~Label()
 {
 }
+
