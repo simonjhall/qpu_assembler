@@ -414,17 +414,17 @@ mulsecondarg: mulregb
 		$$ = new SmallImm(*pImm);
 	}
 
-adddestreg: ra_reg | rb_reg | acc_reg | NOPWA | NOPWB
+adddestreg: ra_reg | rb_reg | acc_reg | NOPWA | NOPWB | VPMWA | VPMWB | VPMWASETUP | VPMWBSETUP | VPMWAADDR | VPMWBADDR
 
-muldestreg: ra_reg | rb_reg | acc_reg | NOPWA | NOPWB
+muldestreg: ra_reg | rb_reg | acc_reg | NOPWA | NOPWB | VPMWA | VPMWB | VPMWASETUP | VPMWBSETUP | VPMWAADDR | VPMWBADDR
 
-addrega: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
+addrega: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB | VPMRA | VPMRB | VPMRABUSY | VPMRBBUSY | VPMRAWAIT | VPMRBWAIT
 
-addregb: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
+addregb: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB | VPMRA | VPMRB | VPMRABUSY | VPMRBBUSY | VPMRAWAIT | VPMRBWAIT
 
-mulrega: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
+mulrega: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB | VPMRA | VPMRB | VPMRABUSY | VPMRBBUSY | VPMRAWAIT | VPMRBWAIT
 
-mulregb: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
+mulregb: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB | VPMRA | VPMRB | VPMRABUSY | VPMRBBUSY | VPMRAWAIT | VPMRBWAIT
 
 acc_reg: ACC_REG
 

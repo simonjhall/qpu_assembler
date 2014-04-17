@@ -65,16 +65,34 @@ ra[0-9]+	{ yylval.p = new Register(Register::kRa, atoi(yytext + 2)); return RA_R
 rb[0-9]+	{ yylval.p = new Register(Register::kRb, atoi(yytext + 2)); return RB_REG; }
 acc[0-5]	{ yylval.p = new Register(Register::kAcc, atoi(yytext + 3)); return ACC_REG; }
 
-rdaunif		{ yylval.p = new Register(Register::kRa, 32); return UNIFRA; }
-rdbunif		{ yylval.p = new Register(Register::kRb, 32); return UNIFRB; }
+rda_unif	{ yylval.p = new Register(Register::kRa, 32); return UNIFRA; }
+rdb_unif	{ yylval.p = new Register(Register::kRb, 32); return UNIFRB; }
 
-rdaelem		{ yylval.p = new Register(Register::kRa, 38); return ELEMRA; }
-rdbqpu		{ yylval.p = new Register(Register::kRb, 38); return QPURB; }
+elem_num	{ yylval.p = new Register(Register::kRa, 38); return ELEMRA; }
+qpu_num		{ yylval.p = new Register(Register::kRb, 38); return QPURB; }
 
-rdanop		{ yylval.p = new Register(Register::kRa, 39); return NOPRA; }
-rdbnop		{ yylval.p = new Register(Register::kRb, 39); return NOPRB; }
-wranop		{ yylval.p = new Register(Register::kRa, 39); return NOPWA; }
-wrbnop		{ yylval.p = new Register(Register::kRb, 39); return NOPWB; }
+rda_nop		{ yylval.p = new Register(Register::kRa, 39); return NOPRA; }
+rdb_nop		{ yylval.p = new Register(Register::kRb, 39); return NOPRB; }
+wra_nop		{ yylval.p = new Register(Register::kRa, 39); return NOPWA; }
+wrb_nop		{ yylval.p = new Register(Register::kRb, 39); return NOPWB; }
+
+rda_vpm_dat	{ yylval.p = new Register(Register::kRa, 48); return VPMRA; }
+rdb_vpm_dat	{ yylval.p = new Register(Register::kRb, 48); return VPMRB; }
+
+wra_vpm_dat	{ yylval.p = new Register(Register::kRa, 48); return VPMWA; }
+wrb_vpm_dat	{ yylval.p = new Register(Register::kRb, 48); return VPMWB; }
+
+vpm_ld_busy	{ yylval.p = new Register(Register::kRa, 49); return VPMRABUSY; }
+vpm_st_busy	{ yylval.p = new Register(Register::kRb, 49); return VPMRBBUSY; }
+
+vpm_ld_setup	{ yylval.p = new Register(Register::kRa, 49); return VPMWASETUP; }
+vpm_st_setup	{ yylval.p = new Register(Register::kRb, 49); return VPMWBSETUP; }
+
+vpm_ld_wait	{ yylval.p = new Register(Register::kRa, 50); return VPMRAWAIT; }
+vpm_st_wait	{ yylval.p = new Register(Register::kRb, 50); return VPMRBWAIT; }
+
+vpm_ld_addr	{ yylval.p = new Register(Register::kRa, 50); return VPMWAADDR; }
+vpm_st_addr	{ yylval.p = new Register(Register::kRb, 50); return VPMWBADDR; }
 
 "nop"		{ return NOP; }
 
