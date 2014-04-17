@@ -40,6 +40,15 @@ std::list<Base *> s_statements;
 %token <p> LABEL_DEF LABEL_TARGET
 %token <p> WORD SHORT BYTE
 
+%token <p> UNIFRA UNIFRB
+%token <p> NOPRA NOPRB NOPWA NOPWB
+%token <p> VPMRA VPMRB VPMWA VPMWB
+%token <p> VPMRABUSY VPMRBBUSY
+%token <p> VPMWASETUP VPMWBSETUP
+%token <p> VPMRAWAIT VPMRBWAIT
+%token <p> VPMWAADDR VPMWBADDR
+%token <p> ELEMRA QPURB
+
 //-- GRAMMAR RULES ---------------------------------------
 %%
 
@@ -370,6 +379,25 @@ il: IL setflags optinstcond adddestreg COMMA valueorlabel
 		delete pFlags;
 	}
 
+il: IL setflags optinstcond muldestreg COMMA valueorlabel
+	{
+		Value *pFlags = dynamic_cast<Value *>$2;
+		InstructionCondition *pCc = dynamic_cast<InstructionCondition *>$3;
+		Register *pDest = dynamic_cast<Register *>$4;
+		Value *pImm = dynamic_cast<Value *>$6;
+		
+		assert(pFlags);
+		assert(pCc);
+		assert(pDest);
+		assert(pImm);
+		assert(pFlags->GetIntValue() == 1 || pFlags->GetIntValue() == 0);
+		
+		$$ = new IlInstruction(*pDest, *pImm, *pCc,
+				pFlags->GetIntValue() ? true : false);
+		
+		delete pFlags;
+	}
+
 addsecondarg: addregb
 | smallimm
 	{
@@ -386,17 +414,17 @@ mulsecondarg: mulregb
 		$$ = new SmallImm(*pImm);
 	}
 
-adddestreg: ra_reg | rb_reg | acc_reg
+adddestreg: ra_reg | rb_reg | acc_reg | NOPWA | NOPWB
 
-muldestreg: ra_reg | rb_reg | acc_reg
+muldestreg: ra_reg | rb_reg | acc_reg | NOPWA | NOPWB
 
-addrega: ra_reg | rb_reg | acc_reg
+addrega: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
 
-addregb: ra_reg | rb_reg | acc_reg
+addregb: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
 
-mulrega: ra_reg | rb_reg | acc_reg
+mulrega: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
 
-mulregb: ra_reg | rb_reg | acc_reg
+mulregb: ra_reg | rb_reg | acc_reg | NOPRA | NOPRB | UNIFRA | UNIFRB | ELEMRA | QPURB
 
 acc_reg: ACC_REG
 

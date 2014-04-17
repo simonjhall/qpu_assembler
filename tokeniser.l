@@ -63,7 +63,18 @@ union
 
 ra[0-9]+	{ yylval.p = new Register(Register::kRa, atoi(yytext + 2)); return RA_REG; }
 rb[0-9]+	{ yylval.p = new Register(Register::kRb, atoi(yytext + 2)); return RB_REG; }
-acc[0-9]+	{ yylval.p = new Register(Register::kAcc, atoi(yytext + 3)); return ACC_REG; }
+acc[0-5]	{ yylval.p = new Register(Register::kAcc, atoi(yytext + 3)); return ACC_REG; }
+
+rdaunif		{ yylval.p = new Register(Register::kRa, 32); return UNIFRA; }
+rdbunif		{ yylval.p = new Register(Register::kRb, 32); return UNIFRB; }
+
+rdaelem		{ yylval.p = new Register(Register::kRa, 38); return ELEMRA; }
+rdbqpu		{ yylval.p = new Register(Register::kRb, 38); return QPURB; }
+
+rdanop		{ yylval.p = new Register(Register::kRa, 39); return NOPRA; }
+rdbnop		{ yylval.p = new Register(Register::kRb, 39); return NOPRB; }
+wranop		{ yylval.p = new Register(Register::kRa, 39); return NOPWA; }
+wrbnop		{ yylval.p = new Register(Register::kRb, 39); return NOPWB; }
 
 "nop"		{ return NOP; }
 
