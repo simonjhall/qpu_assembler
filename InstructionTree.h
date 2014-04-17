@@ -31,13 +31,20 @@ public:
 		inline Field(unsigned int position, unsigned int mask, unsigned int value)
 		: m_position(position),
 		  m_mask(mask),
-		  m_value(value)
+		  m_value(value),
+		  m_totalSize(0)
+		{
+		};
+
+		inline Field(unsigned int size)
+		: m_totalSize(size)
 		{
 		};
 
 		uint64_t m_position;
 		uint64_t m_mask;
 		uint64_t m_value;
+		unsigned int m_totalSize;
 	};
 
 	typedef std::list<Field> Fields;
@@ -45,7 +52,7 @@ public:
 	virtual void Assemble(Fields &rFields);
 	virtual unsigned int GetEncodedValue(void);
 
-	static uint64_t CombineFields(Fields &rFields);
+	static uint64_t CombineFields(Fields &rFields, unsigned int &rSizeInBytes);
 };
 
 class InstructionCondition : public Base, public Assemblable
@@ -74,7 +81,7 @@ private:
 	BranchCondition m_condition;
 };
 
-class Value : public Base
+class Value : public Base, public Assemblable
 {
 	friend class SmallImm;
 public:
@@ -87,11 +94,16 @@ public:
 
 	virtual int GetIntValue(void);
 
+	virtual void Assemble(Fields &rFields);
+
+	void SetAsFloat(void);
+
 protected:
 	int m_value;
 	int m_num, m_denom;
 
 	int m_byteCount;
+	bool m_isFloat;
 };
 
 class Instruction : public Base, public Assemblable
@@ -99,6 +111,8 @@ class Instruction : public Base, public Assemblable
 public:
 	Instruction();
 	virtual ~Instruction();
+
+	virtual void Assemble(Fields &rFields);
 };
 
 class SecondSource : public Base

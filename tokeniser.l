@@ -2,8 +2,16 @@
 #include "InstructionTree.h"
 #include "grammar.tab.hpp"
 #include <stdio.h>
+#include <string>
 #include "shared.h"
 using namespace std;
+
+union
+{
+	float f;
+	unsigned int i;
+} swappa;
+			
 %}
 
 %option noyywrap
@@ -26,6 +34,7 @@ using namespace std;
 "1/8"		{ yylval.p = new Value(1, 8); return NUM; }
 "1/4"		{ yylval.p = new Value(1, 4); return NUM; }
 "1/2"		{ yylval.p = new Value(1, 2); return NUM; }
+[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?f	{ swappa.f = std::stof(yytext); yylval.p = new Value(swappa.i); ((Value *)yylval.p)->SetAsFloat(); return NUM; }
 
 [0-9]+		{ yylval.p = new Value(atoi(yytext)); return NUM; }
 0x[0-9a-f]+   { yylval.p = new Value(strtol(yytext + 2, 0 , 16)); return NUM; }

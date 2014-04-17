@@ -30,8 +30,15 @@ unsigned int Assemblable::GetEncodedValue(void)
 	return 0;
 }
 
+void Instruction::Assemble(Fields& rFields)
+{
+	rFields.push_back(Field(8));
+}
+
 void BranchInstruction::Assemble(Fields& rFields)
 {
+	Instruction::Assemble(rFields);
+
 	//branch signal
 	rFields.push_back(Field(57, 127, 120));
 
@@ -72,6 +79,8 @@ void BranchInstruction::Assemble(Fields& rFields)
 
 void SemInstruction::Assemble(Fields& rFields)
 {
+	Instruction::Assemble(rFields);
+
 	//sem signal
 	rFields.push_back(Field(57, 127, 116));
 
@@ -84,6 +93,8 @@ void SemInstruction::Assemble(Fields& rFields)
 
 void IlInstruction::Assemble(Fields& rFields)
 {
+	Instruction::Assemble(rFields);
+
 	//il signal
 	rFields.push_back(Field(57, 127, 112));
 
@@ -111,6 +122,8 @@ void IlInstruction::Assemble(Fields& rFields)
 
 void AluInstruction::Assemble(Fields& rFields)
 {
+	Instruction::Assemble(rFields);
+
 	m_rLeft.Assemble(rFields);
 	m_rRight.Assemble(rFields);
 
@@ -347,8 +360,20 @@ unsigned int InstructionCondition::GetEncodedValue(void)
 	return (unsigned int)m_condition;
 }
 
-uint64_t Assemblable::CombineFields(Fields &rFields)
+uint64_t Assemblable::CombineFields(Fields &rFields, unsigned int &rSizeInBytes)
 {
+	unsigned int totalSize = 0;
+	//find the maximum size of the output
+	for (auto it = rFields.begin(); it != rFields.end(); it++)
+		if (it->m_totalSize)
+		{
+			//there should be only one
+			assert(totalSize == 0);
+			totalSize = it->m_totalSize;
+		}
+
+	assert(totalSize);
+
 	uint64_t output = 0;
 	uint64_t mask = 0;
 
@@ -376,10 +401,41 @@ uint64_t Assemblable::CombineFields(Fields &rFields)
 		}
 	}
 
+	//chop out anything over the max size
+	if (totalSize != 8)
+	{
+		uint64_t masked = output & (((uint64_t)1 << (uint64_t)(totalSize * 8)) - 1);
+		assert(masked == output);
+	}
+
+	rSizeInBytes = totalSize;
 	return output;
 }
 
 unsigned int BrCondition::GetEncodedValue(void)
 {
 	return (unsigned int)m_condition;
+}
+
+void Value::Assemble(Fields& rFields)
+{
+	assert(m_byteCount);
+	assert(m_denom == 0);
+
+	switch (m_byteCount)
+	{
+	case 1:
+		rFields.push_back(Field(0, 0xff, m_value));
+		break;
+	case 2:
+		rFields.push_back(Field(0, 0xffff, m_value));
+		break;
+	case 4:
+		rFields.push_back(Field(0, 0xffffffff, m_value));
+		break;
+	default:
+		assert(0);
+	}
+
+	rFields.push_back(Field(m_byteCount));
 }

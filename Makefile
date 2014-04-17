@@ -3,7 +3,7 @@ CFLAGS=-Wall -I ~/git/qpu -Wfatal-errors --std=c++11 -g
 
 all: myass
 
-myass: main.o InstructionTree.o DebugPrint.o Assemblable.o grammar.tab.cpp grammar.tab.hpp
+myass: main.o InstructionTree.o DebugPrint.o Assemblable.o grammar.tab.cpp grammar.tab.hpp lex.yy.c
 	g++ -g -o myass main.o Assemblable.o InstructionTree.o DebugPrint.o grammar.tab.cpp lex.yy.c $(CFLAGS)
 
 InstructionTree.o: InstructionTree.cpp InstructionTree.h ../qpu/shared.h

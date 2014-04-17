@@ -23,7 +23,8 @@ Value::Value(int v)
 : m_value(v),
   m_num(0),
   m_denom(0),
-  m_byteCount(0)
+  m_byteCount(0),
+  m_isFloat(false)
 {
 }
 
@@ -31,7 +32,8 @@ Value::Value(int numerator, int denominator)
 : m_value(0),
   m_num(numerator),
   m_denom(denominator),
-  m_byteCount(0)
+  m_byteCount(0),
+  m_isFloat(false)
 {
 }
 
@@ -45,6 +47,15 @@ void Value::SetSize(int byteCount)
 {
 	assert(m_denom == 0 || byteCount == 4);
 	m_byteCount = byteCount;
+
+	if (m_isFloat)
+		assert(m_byteCount == 4);
+}
+
+void Value::SetAsFloat(void)
+{
+	m_isFloat = true;
+	SetSize(4);
 }
 
 Instruction::Instruction()
