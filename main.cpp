@@ -13,6 +13,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+int yyparse (void);
+
 extern FILE *yyin;
 extern std::list<Base *> s_statements;
 
