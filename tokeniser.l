@@ -18,6 +18,8 @@ union
 
 %%
 
+"/*".*"*/" { /* not a very good way of getting rid of comments */ }
+
 "1\.0"		{ yylval.p = new Value(1, 1); return NUM; }
 "2\.0"		{ yylval.p = new Value(2, 1); return NUM; }
 "4\.0"		{ yylval.p = new Value(4, 1); return NUM; }
@@ -67,6 +69,17 @@ acc[0-5]	{ yylval.p = new Register(Register::kAcc, atoi(yytext + 3)); return ACC
 
 rda_unif	{ yylval.p = new Register(Register::kRa, 32); return UNIFRA; }
 rdb_unif	{ yylval.p = new Register(Register::kRb, 32); return UNIFRB; }
+
+wra_acc0	{ yylval.p = new Register(Register::kRa, 32); return ACC0WA; }
+wrb_acc0	{ yylval.p = new Register(Register::kRb, 32); return ACC0WB; }
+wra_acc1	{ yylval.p = new Register(Register::kRa, 33); return ACC1WA; }
+wrb_acc1	{ yylval.p = new Register(Register::kRb, 33); return ACC1WB; }
+wra_acc2	{ yylval.p = new Register(Register::kRa, 34); return ACC2WA; }
+wrb_acc2	{ yylval.p = new Register(Register::kRb, 34); return ACC2WB; }
+wra_acc3	{ yylval.p = new Register(Register::kRa, 35); return ACC3WA; }
+wrb_acc3	{ yylval.p = new Register(Register::kRb, 35); return ACC3WB; }
+wra_acc5	{ yylval.p = new Register(Register::kRa, 37); return ACC5WA; }
+wrb_acc5	{ yylval.p = new Register(Register::kRb, 37); return ACC5WB; }
 
 elem_num	{ yylval.p = new Register(Register::kRa, 38); return ELEMRA; }
 qpu_num		{ yylval.p = new Register(Register::kRb, 38); return QPURB; }
