@@ -37,7 +37,7 @@ union
 [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?f	{ swappa.f = std::stof(yytext); yylval.p = new Value(swappa.i); ((Value *)yylval.p)->SetAsFloat(); return NUM; }
 
 [0-9]+		{ yylval.p = new Value(atoi(yytext)); return NUM; }
-0x[0-9a-f]+   { yylval.p = new Value(strtol(yytext + 2, 0 , 16)); return NUM; }
+0x[0-9a-f]+   { yylval.p = new Value(strtoll(yytext + 2, 0 , 16)); return NUM; }
 \-[0-9]+   { yylval.p = new Value(atoi(yytext)); return NUM; }
 ";"      { return SEMICOLON; }
 ","      { return COMMA; }
