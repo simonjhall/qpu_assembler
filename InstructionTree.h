@@ -106,15 +106,6 @@ protected:
 	bool m_isFloat;
 };
 
-class Instruction : public Base, public Assemblable
-{
-public:
-	Instruction();
-	virtual ~Instruction();
-
-	virtual void Assemble(Fields &rFields);
-};
-
 class SecondSource : public Base
 {
 public:
@@ -143,6 +134,91 @@ public:
 private:
 	Location m_loc;
 	int m_id;
+};
+
+class DependencyBase
+{
+protected:
+	inline DependencyBase(int minCycles, bool hardDependency)
+	: m_minCycles(minCycles),
+	  m_hardDependency(hardDependency)
+	{
+	};
+
+	int m_minCycles;
+	bool m_hardDependency;
+};
+
+class DependencyWithoutInterlock : public DependencyBase
+{
+protected:
+	inline DependencyWithoutInterlock(int minCycles, bool hardDependency)
+	: DependencyBase(minCycles, hardDependency)
+	{
+	}
+};
+
+class DependencyWithStall : public DependencyBase
+{
+protected:
+	inline DependencyWithStall(int minCycles, bool hardDependency)
+	: DependencyBase(minCycles, hardDependency)
+	{
+	}
+};
+
+class RaRbDependency : public DependencyWithoutInterlock
+{
+public:
+	RaRbDependency(Register &rReg);
+protected:
+	Register &m_rReg;
+};
+
+class AccDependency : public DependencyWithoutInterlock
+{
+public:
+	AccDependency(Register &rReg);
+protected:
+	Register &m_rReg;
+};
+
+class BranchDependency : public DependencyWithoutInterlock
+{
+public:
+	inline BranchDependency(void)
+	: DependencyWithoutInterlock(3, false)
+	{
+	}
+protected:
+};
+
+class DependencyProvider
+{
+public:
+	typedef std::list<DependencyBase *> Dependencies;
+
+	inline virtual ~DependencyProvider() {};
+
+	virtual Dependencies &GetDeps(void) = 0;
+	virtual void AddDeps(void) = 0;
+};
+
+class Instruction : public Base, public Assemblable, public DependencyProvider
+{
+public:
+	typedef std::list<Register> Registers;
+
+
+	Instruction();
+	virtual ~Instruction();
+
+	virtual void Assemble(Fields &rFields);
+	virtual void GetOutputs(Registers &rOutputs);
+	virtual void GetInputs(Registers &rInputs);
+
+protected:
+	Dependencies m_deps;
 };
 
 class SmallImm : public SecondSource, public Assemblable

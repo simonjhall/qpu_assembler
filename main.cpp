@@ -13,6 +13,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+int yyparse (void);
+
 extern FILE *yyin;
 extern std::list<Base *> s_statements;
 
@@ -24,9 +26,11 @@ int main(int argc, const char *argv[])
 	unsigned int baseAddress = 0;
 
 	if (argc >= 2)
-		baseAddress = strtol(argv[1], 0, 16);
+		baseAddress = strtoll(argv[1], 0, 16);
 	if (argc >= 3)
 		yyin = fopen(argv[2], "r");
+
+	printf("/""*\n");
 
 	printf("base address is %08x\n", baseAddress);
 
@@ -81,6 +85,7 @@ int main(int argc, const char *argv[])
 		}
 	}
 
+	printf("*""/\n");
 
 	address = baseAddress;
 
@@ -106,16 +111,16 @@ int main(int argc, const char *argv[])
 				printf("\n");
 				break;
 			case 1:
-				printf("0x%02lx,\n", output & 0xff);
+				printf("0x%02llx,\n", output & 0xff);
 				break;
 			case 2:
-				printf("0x%04lx,\n", output & 0xffff);
+				printf("0x%04llx,\n", output & 0xffff);
 				break;
 			case 4:
-				printf("0x%08lx,\n", output & 0xffffffff);
+				printf("0x%08llx,\n", output & 0xffffffff);
 				break;
 			case 8:
-				printf("0x%08lx, 0x%08lx,\n", output & 0xffffffff, output >> 32);
+				printf("0x%08llx, 0x%08llx,\n", output & 0xffffffff, output >> 32);
 				break;
 			default:
 				assert(0);

@@ -329,3 +329,24 @@ Label::~Label()
 {
 }
 
+RaRbDependency::RaRbDependency(Register &rReg)
+: DependencyWithoutInterlock(2, false),
+  m_rReg(rReg)
+{
+	assert(rReg.GetLocation() != Register::kAcc);
+}
+
+AccDependency::AccDependency(Register &rReg)
+: DependencyWithoutInterlock(1, false),
+  m_rReg(rReg)
+{
+	assert(rReg.GetLocation() == Register::kAcc);
+}
+
+void Instruction::GetOutputs(Registers& rOutputs)
+{
+}
+
+void Instruction::GetInputs(Registers& rInputs)
+{
+}
