@@ -18,6 +18,15 @@ union
 
 %%
 
+"//".*$		{}
+"\.file".*$	{}
+"\.text".*$	{}
+"\.globl".*$	{}
+"\.type".*$	{}
+"\.size".*$	{}
+
+"\.align".*$	{}
+
 "1\.0"		{ yylval.p = new Value(1, 1); return NUM; }
 "2\.0"		{ yylval.p = new Value(2, 1); return NUM; }
 "4\.0"		{ yylval.p = new Value(4, 1); return NUM; }
@@ -45,8 +54,8 @@ union
 [ \t\n]+ { }
 "s"			{ return SETFLAGS; }
 "a"			{ return ABSOLUTE; }
-^[A-Z][A-Z0-9]*:	{ yylval.p = new Label(yytext, true); return LABEL_DEF; }
-\#[A-Z][A-Z0-9]*\#	{ yylval.p = new Label(yytext, false); return LABEL_TARGET; }
+^[A-Z$][A-Z0-9_]*:	{ yylval.p = new Label(yytext, true); return LABEL_DEF; }
+\#[A-Z$][A-Z0-9_]*\#	{ yylval.p = new Label(yytext, false); return LABEL_TARGET; }
 .        { printf("Unrecognized token! \"%s\"\n", yytext); exit(1); }
 
 "never"		{ yylval.p = new InstructionCondition(kNever); return NEVER; }
