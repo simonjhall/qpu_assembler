@@ -25,6 +25,9 @@ union
 "\.type".*$	{}
 "\.size".*$	{}
 
+"\.set reorder".*$	{ return REORDER_BEGIN; }
+"\.set noreorder".*$	{ return REORDER_END; }
+
 "\.align".*$	{}
 "/*".*"*/" { /* not a very good way of getting rid of comments */ }
 

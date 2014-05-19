@@ -148,3 +148,11 @@ void Label::DebugPrint(int depth)
 
 	printf("label name: %s\n", m_name);
 }
+
+void ReorderControl::DebugPrint(int depth)
+{
+	for (int count = 0; count < depth; count++)
+		printf("\t");
+
+	printf("reordering: %s\n", m_begin ? "TRUE" : "FALSE");
+}

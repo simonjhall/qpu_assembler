@@ -49,6 +49,7 @@ std::list<Base *> s_statements;
 %token <p> VPMRAWAIT VPMRBWAIT
 %token <p> VPMWAADDR VPMWBADDR
 %token <p> ELEMRA QPURB
+%token <p> REORDER_BEGIN REORDER_END
 
 //-- GRAMMAR RULES ---------------------------------------
 %%
@@ -73,6 +74,14 @@ res: NOP
 					BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
 					AluSignal::DefaultSignal());
 			s_statements.push_back($$);
+		}
+	| REORDER_BEGIN
+		{
+			s_statements.push_back(new ReorderControl(true));
+		}
+	| REORDER_END
+		{
+			s_statements.push_back(new ReorderControl(false));
 		}
 	| signal
 		{
@@ -211,7 +220,7 @@ res: NOP
 			SemInstruction *s = new SemInstruction(*p, SemInstruction::kDec);
 			s_statements.push_back(s);
 		}
-| BR optabsolute brcond adddestreg COMMA muldestreg COMMA addrega
+| BR optabsolute brcond adddestreg COMMA muldestreg COMMA ra_reg
 		{
 			Value *pAbs = dynamic_cast<Value *>$2;
 			BrCondition *pCond = dynamic_cast<BrCondition *>$3;
@@ -233,7 +242,7 @@ res: NOP
 			
 			delete pAbs;
 		}
-| BR optabsolute brcond adddestreg COMMA muldestreg COMMA addrega COMMA NUM
+| BR optabsolute brcond adddestreg COMMA muldestreg COMMA ra_reg COMMA NUM
 		{
 			Value *pAbs = dynamic_cast<Value *>$2;
 			BrCondition *pCond = dynamic_cast<BrCondition *>$3;

@@ -9,15 +9,34 @@
 #define INSTRUCTIONTREE_H_
 
 #include "shared.h"
+
 #include <list>
+#include <functional>
 #include <stdint.h>
 
 class Base
 {
 public:
+	virtual void DebugPrint(int depth);
+
+protected:
 	Base();
 	virtual ~Base();
+};
+
+class ReorderControl : public Base
+{
+public:
+	ReorderControl(bool begin);
+	virtual ~ReorderControl();
+
+	bool IsBegin(void);
+	bool IsEnd(void);
+
 	virtual void DebugPrint(int depth);
+
+private:
+	bool m_begin;
 };
 
 class Assemblable
@@ -131,6 +150,16 @@ public:
 	inline Location GetLocation(void) { return m_loc; }
 	inline int GetId(void) { return m_id; }
 
+	typedef std::list<Register> Registers;
+
+	bool operator <(const Register &rhs) const
+	{
+		if (m_loc == rhs.m_loc)
+			return m_id > rhs.m_id;
+		else
+			return (int)m_loc > (int)rhs.m_loc;
+	}
+
 private:
 	Location m_loc;
 	int m_id;
@@ -138,6 +167,9 @@ private:
 
 class DependencyBase
 {
+public:
+	typedef std::list<DependencyBase *> Dependencies;
+
 protected:
 	inline DependencyBase(int minCycles, bool hardDependency)
 	: m_minCycles(minCycles),
@@ -196,29 +228,34 @@ protected:
 class DependencyProvider
 {
 public:
-	typedef std::list<DependencyBase *> Dependencies;
-
 	inline virtual ~DependencyProvider() {};
 
-	virtual Dependencies &GetDeps(void) = 0;
-	virtual void AddDeps(void) = 0;
+	virtual void GetOutputDeps(DependencyBase::Dependencies &) = 0;
 };
 
-class Instruction : public Base, public Assemblable, public DependencyProvider
+class DependencyConsumer
 {
 public:
-	typedef std::list<Register> Registers;
+	inline virtual ~DependencyConsumer() {};
 
+	virtual void GetInputDeps(Register::Registers &rRegs) = 0;
+	virtual void AddInputDep(DependencyBase &rDep) = 0;
+};
 
+class Instruction : public Base, public Assemblable, public DependencyProvider, public DependencyConsumer
+{
+public:
 	Instruction();
 	virtual ~Instruction();
 
 	virtual void Assemble(Fields &rFields);
-	virtual void GetOutputs(Registers &rOutputs);
-	virtual void GetInputs(Registers &rInputs);
+
+	virtual void GetOutputDeps(DependencyBase::Dependencies &);
+	virtual void GetInputDeps(Register::Registers &rRegs);
+	virtual void AddInputDep(DependencyBase &rDep);
 
 protected:
-	Dependencies m_deps;
+	DependencyBase::Dependencies m_deps;
 };
 
 class SmallImm : public SecondSource, public Assemblable
@@ -278,6 +315,34 @@ public:
 
 	static bool AreCompatible(AddPipeInstruction &, MulPipeInstruction &, AluSignal &);
 
+	inline Register *GetDestReg(bool ifNopIgnore)
+	{
+		if (ifNopIgnore && (m_rDest.GetId() == 39 || IsNopOrNever()))
+			return 0;
+
+		return &m_rDest;
+	}
+
+	inline Register *GetSourceRegA(bool ifNopIgnore)
+	{
+		if (ifNopIgnore && (m_rSource1.GetId() == 39 || IsNopOrNever()))
+			return 0;
+
+		return &m_rSource1;
+	}
+
+	inline Register *GetSourceRegB(bool ifNopIgnore)
+	{
+		Register *r = dynamic_cast<Register *>(&m_rSource2);
+		if (!r)
+			return 0;
+
+		if (ifNopIgnore && (r->GetId() == 39 || IsNopOrNever()))
+			return 0;
+
+		return r;
+	}
+
 protected:
 	void AssembleAs(Fields &rFields, bool aluPipe);
 
@@ -335,6 +400,8 @@ public:
 
 	virtual void DebugPrint(int depth);
 
+	virtual void GetOutputDeps(DependencyBase::Dependencies &);
+	virtual void GetInputDeps(Register::Registers &rRegs);
 private:
 	AddPipeInstruction &m_rLeft;
 	MulPipeInstruction &m_rRight;
@@ -349,6 +416,8 @@ public:
 
 	virtual void DebugPrint(int depth);
 	virtual void Assemble(Fields &rFields);
+
+	virtual void GetOutputDeps(DependencyBase::Dependencies &);
 
 private:
 	Register &m_rDest;
@@ -385,6 +454,9 @@ public:
 
 	virtual void DebugPrint(int depth);
 	virtual void Assemble(Fields &rFields);
+
+	virtual void GetOutputDeps(DependencyBase::Dependencies &);
+	virtual void GetInputDeps(Register::Registers &rRegs);
 
 private:
 	bool m_absolute;

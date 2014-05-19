@@ -77,7 +77,7 @@ Register::Register(Location loc, int id)
 	if (m_loc == kAcc)
 		assert(m_id < 6);
 	else
-		assert(m_id < 63);
+		assert(m_id < 64);
 }
 
 Register::~Register()
@@ -343,10 +343,124 @@ AccDependency::AccDependency(Register &rReg)
 	assert(rReg.GetLocation() == Register::kAcc);
 }
 
-void Instruction::GetOutputs(Registers& rOutputs)
+void Instruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
+{
+	//should be just sem
+	assert(dynamic_cast<SemInstruction *>(this));
+	rDeps.clear();
+}
+
+void Instruction::GetInputDeps(Register::Registers& rRegs)
+{
+	rRegs.clear();
+}
+
+void Instruction::AddInputDep(DependencyBase& rDep)
+{
+	m_deps.push_back(&rDep);
+}
+
+void AluInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
+{
+	rDeps.clear();
+
+	Register *pDestA = m_rLeft.GetDestReg(true);
+	Register *pDestM = m_rRight.GetDestReg(true);
+
+	if (pDestA)
+	{
+		if (pDestA->GetLocation() == Register::kAcc)
+			rDeps.push_back(new AccDependency(*pDestA));
+		else
+		{
+			assert(pDestA->GetLocation() == Register::kRa || pDestA->GetLocation() == Register::kRb);
+			rDeps.push_back(new RaRbDependency(*pDestA));
+		}
+	}
+
+	if (pDestM)
+	{
+		if (pDestM->GetLocation() == Register::kAcc)
+			rDeps.push_back(new AccDependency(*pDestM));
+		else
+		{
+			assert(pDestM->GetLocation() == Register::kRa || pDestM->GetLocation() == Register::kRb);
+			rDeps.push_back(new RaRbDependency(*pDestM));
+		}
+	}
+}
+
+void IlInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
+{
+	rDeps.clear();
+
+	if (m_rDest.GetLocation() == Register::kAcc)
+		rDeps.push_back(new AccDependency(m_rDest));
+	else
+	{
+		assert(m_rDest.GetLocation() == Register::kRa || m_rDest.GetLocation() == Register::kRb);
+		rDeps.push_back(new RaRbDependency(m_rDest));
+	}
+}
+
+void BranchInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
+{
+	rDeps.clear();
+
+	assert(m_rDestA.GetLocation() == Register::kRa || m_rDestA.GetLocation() == Register::kRb);
+	assert(m_rDestM.GetLocation() == Register::kRa || m_rDestM.GetLocation() == Register::kRb);
+
+	rDeps.push_back(new RaRbDependency(m_rDestA));
+	rDeps.push_back(new RaRbDependency(m_rDestM));
+}
+
+ReorderControl::ReorderControl(bool begin)
+: Base(),
+  m_begin(begin)
 {
 }
 
-void Instruction::GetInputs(Registers& rInputs)
+bool ReorderControl::IsBegin(void)
 {
+	return m_begin;
+}
+
+ReorderControl::~ReorderControl()
+{
+}
+
+bool ReorderControl::IsEnd(void)
+{
+	return !m_begin;
+}
+
+void AluInstruction::GetInputDeps(Register::Registers& rRegs)
+{
+	rRegs.clear();
+
+	Register *pSourceA1 = m_rLeft.GetSourceRegA(true);
+	Register *pSourceA2 = m_rLeft.GetSourceRegB(true);
+
+	Register *pSourceM1 = m_rRight.GetSourceRegA(true);
+	Register *pSourceM2 = m_rRight.GetSourceRegB(true);
+
+	if (pSourceA1)
+		rRegs.push_back(*pSourceA1);
+	if (pSourceA2)
+		rRegs.push_back(*pSourceA2);
+	if (pSourceM1)
+		rRegs.push_back(*pSourceM1);
+	if (pSourceM2)
+		rRegs.push_back(*pSourceM2);
+}
+
+void BranchInstruction::GetInputDeps(Register::Registers& rRegs)
+{
+	rRegs.clear();
+
+	if (m_pSource)
+	{
+		assert(m_pSource->GetLocation() == Register::kRa);
+		rRegs.push_back(*m_pSource);
+	}
 }
