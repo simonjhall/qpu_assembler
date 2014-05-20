@@ -330,14 +330,14 @@ Label::~Label()
 }
 
 RaRbDependency::RaRbDependency(Register &rReg)
-: DependencyWithoutInterlock(2, false),
+: DependencyWithoutInterlock(2, false, RegisterDependee(rReg)),
   m_rReg(rReg)
 {
 	assert(rReg.GetLocation() != Register::kAcc);
 }
 
 AccDependency::AccDependency(Register &rReg)
-: DependencyWithoutInterlock(1, false),
+: DependencyWithoutInterlock(1, false, RegisterDependee(rReg)),
   m_rReg(rReg)
 {
 	assert(rReg.GetLocation() == Register::kAcc);
@@ -350,7 +350,7 @@ void Instruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 	rDeps.clear();
 }
 
-void Instruction::GetInputDeps(Register::Registers& rRegs)
+void Instruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
 	rRegs.clear();
 }
@@ -434,7 +434,7 @@ bool ReorderControl::IsEnd(void)
 	return !m_begin;
 }
 
-void AluInstruction::GetInputDeps(Register::Registers& rRegs)
+void AluInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
 	rRegs.clear();
 
@@ -454,7 +454,7 @@ void AluInstruction::GetInputDeps(Register::Registers& rRegs)
 		rRegs.push_back(*pSourceM2);
 }
 
-void BranchInstruction::GetInputDeps(Register::Registers& rRegs)
+void BranchInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
 	rRegs.clear();
 
@@ -463,4 +463,34 @@ void BranchInstruction::GetInputDeps(Register::Registers& rRegs)
 		assert(m_pSource->GetLocation() == Register::kRa);
 		rRegs.push_back(*m_pSource);
 	}
+}
+
+RegisterDependee::RegisterDependee(Register& rReg)
+: m_rReg(rReg)
+{
+}
+
+bool RegisterDependee::SatisfiesThis(DependencyBase& rDep)
+{
+	AccDependency *a = dynamic_cast<AccDependency *>(&rDep);
+
+	if (a->GetReg().GetLocation() == m_rReg.GetLocation() && a->GetReg().GetId() == m_rReg.GetId())
+		return true;
+
+	RaRbDependency *r = dynamic_cast<RaRbDependency *>(&rDep);
+
+	if (r->GetReg().GetLocation() == m_rReg.GetLocation() && r->GetReg().GetId() == m_rReg.GetId())
+		return true;
+
+	return true;
+}
+
+Register& RaRbDependency::GetReg()
+{
+	return m_rReg;
+}
+
+Register& AccDependency::GetReg()
+{
+	return m_rReg;
 }

@@ -165,27 +165,54 @@ private:
 	int m_id;
 };
 
+class DependencyBase;
+
+class Dependee
+{
+public:
+	virtual bool SatisfiesThis(DependencyBase &rDep) = 0;
+
+	typedef std::list<Dependee *> Dependencies;
+protected:
+	virtual ~Dependee() {};
+};
+
+class RegisterDependee : public Dependee
+{
+public:
+	RegisterDependee(Register &rReg);
+	virtual ~RegisterDependee() {};
+
+	virtual bool SatisfiesThis(DependencyBase &rDep);
+
+	Register &m_rReg;
+};
+
 class DependencyBase
 {
 public:
 	typedef std::list<DependencyBase *> Dependencies;
 
 protected:
-	inline DependencyBase(int minCycles, bool hardDependency)
+	inline DependencyBase(int minCycles, bool hardDependency, const Dependee &rDep)
 	: m_minCycles(minCycles),
-	  m_hardDependency(hardDependency)
+	  m_hardDependency(hardDependency),
+	  m_rDep(rDep)
 	{
 	};
 
+	inline virtual ~DependencyBase() {};
+
 	int m_minCycles;
 	bool m_hardDependency;
+	const Dependee &m_rDep;
 };
 
 class DependencyWithoutInterlock : public DependencyBase
 {
 protected:
-	inline DependencyWithoutInterlock(int minCycles, bool hardDependency)
-	: DependencyBase(minCycles, hardDependency)
+	inline DependencyWithoutInterlock(int minCycles, bool hardDependency, const Dependee &rDep)
+	: DependencyBase(minCycles, hardDependency, rDep)
 	{
 	}
 };
@@ -193,8 +220,8 @@ protected:
 class DependencyWithStall : public DependencyBase
 {
 protected:
-	inline DependencyWithStall(int minCycles, bool hardDependency)
-	: DependencyBase(minCycles, hardDependency)
+	inline DependencyWithStall(int minCycles, bool hardDependency, const Dependee &rDep)
+	: DependencyBase(minCycles, hardDependency, rDep)
 	{
 	}
 };
@@ -203,6 +230,8 @@ class RaRbDependency : public DependencyWithoutInterlock
 {
 public:
 	RaRbDependency(Register &rReg);
+
+	Register &GetReg();
 protected:
 	Register &m_rReg;
 };
@@ -211,11 +240,13 @@ class AccDependency : public DependencyWithoutInterlock
 {
 public:
 	AccDependency(Register &rReg);
+
+	Register &GetReg();
 protected:
 	Register &m_rReg;
 };
 
-class BranchDependency : public DependencyWithoutInterlock
+/*class BranchDependency : public DependencyWithoutInterlock
 {
 public:
 	inline BranchDependency(void)
@@ -223,7 +254,7 @@ public:
 	{
 	}
 protected:
-};
+};*/
 
 class DependencyProvider
 {
@@ -238,7 +269,7 @@ class DependencyConsumer
 public:
 	inline virtual ~DependencyConsumer() {};
 
-	virtual void GetInputDeps(Register::Registers &rRegs) = 0;
+	virtual void GetInputDeps(Dependee::Dependencies &rDeps) = 0;
 	virtual void AddInputDep(DependencyBase &rDep) = 0;
 };
 
@@ -251,7 +282,7 @@ public:
 	virtual void Assemble(Fields &rFields);
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
-	virtual void GetInputDeps(Register::Registers &rRegs);
+	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
 	virtual void AddInputDep(DependencyBase &rDep);
 
 protected:
@@ -401,7 +432,7 @@ public:
 	virtual void DebugPrint(int depth);
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
-	virtual void GetInputDeps(Register::Registers &rRegs);
+	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
 private:
 	AddPipeInstruction &m_rLeft;
 	MulPipeInstruction &m_rRight;
@@ -456,7 +487,7 @@ public:
 	virtual void Assemble(Fields &rFields);
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
-	virtual void GetInputDeps(Register::Registers &rRegs);
+	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
 
 private:
 	bool m_absolute;
