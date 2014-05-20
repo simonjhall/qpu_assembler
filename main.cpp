@@ -22,38 +22,11 @@ extern std::list<Base *> s_statements;
 
 std::list<Label *> s_declaredLabels;
 std::list<Label *> s_usedLabels;
-std::map<Register, DependencyBase *> s_scoreboard;
+std::list<DependencyBase *> s_scoreboard;
 
-void ClearScoreboard(DependencyBase *p)
+void ClearScoreboard(void)
 {
-	for (int count = 32; count < 64; count++)
-	{
-		s_scoreboard[Register(Register::kRa, count)] = 0;
-		s_scoreboard[Register(Register::kRb, count)] = p;
-	}
-
-	for (int count = 0; count < 32; count++)
-	{
-		s_scoreboard[Register(Register::kRa, count)] = p;
-		s_scoreboard[Register(Register::kRb, count)] = p;
-	}
-
-	for (int count = 0; count < 6; count++)
-		s_scoreboard[Register(Register::kAcc, count)] = p;
-
-	s_scoreboard[Register(Register::kRa, 32)] = p;
-	s_scoreboard[Register(Register::kRa, 35)] = p;
-	s_scoreboard[Register(Register::kRa, 38)] = p;
-
-	s_scoreboard[Register(Register::kRa, 39)] = 0;
-	s_scoreboard[Register(Register::kRb, 39)] = 0;
-
-	s_scoreboard[Register(Register::kRa, 41)] = p;
-	s_scoreboard[Register(Register::kRa, 42)] = p;
-	s_scoreboard[Register(Register::kRa, 48)] = p;
-	s_scoreboard[Register(Register::kRa, 49)] = p;
-	s_scoreboard[Register(Register::kRa, 50)] = p;
-	s_scoreboard[Register(Register::kRa, 51)] = p;
+	s_scoreboard.clear();
 }
 
 int main(int argc, const char *argv[])
@@ -76,7 +49,7 @@ int main(int argc, const char *argv[])
 	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
 		(*it)->DebugPrint(0);
 
-	ClearScoreboard(0);
+	ClearScoreboard();
 
 	bool reorder_enabled = false;
 	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
@@ -85,7 +58,7 @@ int main(int argc, const char *argv[])
 		if (pReorder && pReorder->IsBegin())
 		{
 			reorder_enabled = true;
-			ClearScoreboard(0);
+			ClearScoreboard();
 			continue;
 		}
 		else if (pReorder && pReorder->IsEnd())
@@ -101,14 +74,20 @@ int main(int argc, const char *argv[])
 
 			if (pConsumer)
 			{
-				Register::Registers regs;
-				pConsumer->GetInputDeps(regs);
+				Dependee::Dependencies deps;
+				pConsumer->GetInputDeps(deps);
 
-				for (auto it = regs.begin(); it != regs.end(); it++)
+				for (auto d = deps.begin(); d != deps.end(); d++)
 				{
-					DependencyBase *p = s_scoreboard[*it];
-					if (p)
-						pConsumer->AddInputDep(*p);
+					for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
+					{
+						DependencyBase *p = *s;
+						if ((*d)->SatisfiesThis(*p))
+						{
+							pConsumer->AddInputDep(*p);
+							break;
+						}
+					}
 				}
 			}
 
@@ -117,9 +96,32 @@ int main(int argc, const char *argv[])
 				DependencyBase::Dependencies deps;
 				pProvider->GetOutputDeps(deps);
 
-//				for (auto it = deps.begin(); it != deps.end(); it++)
-//					s_scoreboard[it->
+				for (auto d = deps.begin(); d != deps.end(); d++)
+				{
+					for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
+					{
+						if ((*d)->ProvidesSameThing(*(*s)))
+						{
+							s_scoreboard.erase(s);
+							break;
+						}
+					}
+
+					s_scoreboard.push_back(*d);
+				}
 			}
+		}
+	}
+
+	int count = 0;
+	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
+	{
+		DependencyConsumer *pConsumer = dynamic_cast<DependencyConsumer *>(*it);
+		if (pConsumer)
+		{
+			printf("instruction count %d, provider %p\n", count, dynamic_cast<DependencyProvider *>(*it));
+			pConsumer->DebugPrintDeps();
+			count++;
 		}
 	}
 

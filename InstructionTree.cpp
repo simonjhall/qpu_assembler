@@ -329,15 +329,15 @@ Label::~Label()
 {
 }
 
-RaRbDependency::RaRbDependency(Register &rReg)
-: DependencyWithoutInterlock(2, false, RegisterDependee(rReg)),
+RaRbDependency::RaRbDependency(Register &rReg, DependencyProvider *pProvider)
+: DependencyWithoutInterlock(2, false, RegisterDependee(rReg), pProvider),
   m_rReg(rReg)
 {
 	assert(rReg.GetLocation() != Register::kAcc);
 }
 
-AccDependency::AccDependency(Register &rReg)
-: DependencyWithoutInterlock(1, false, RegisterDependee(rReg)),
+AccDependency::AccDependency(Register &rReg, DependencyProvider *pProvider)
+: DependencyWithoutInterlock(1, false, RegisterDependee(rReg), pProvider),
   m_rReg(rReg)
 {
 	assert(rReg.GetLocation() == Register::kAcc);
@@ -352,7 +352,7 @@ void Instruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 
 void Instruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
-	rRegs.clear();
+	rDeps.clear();
 }
 
 void Instruction::AddInputDep(DependencyBase& rDep)
@@ -370,22 +370,22 @@ void AluInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 	if (pDestA)
 	{
 		if (pDestA->GetLocation() == Register::kAcc)
-			rDeps.push_back(new AccDependency(*pDestA));
+			rDeps.push_back(new AccDependency(*pDestA, this));
 		else
 		{
 			assert(pDestA->GetLocation() == Register::kRa || pDestA->GetLocation() == Register::kRb);
-			rDeps.push_back(new RaRbDependency(*pDestA));
+			rDeps.push_back(new RaRbDependency(*pDestA, this));
 		}
 	}
 
 	if (pDestM)
 	{
 		if (pDestM->GetLocation() == Register::kAcc)
-			rDeps.push_back(new AccDependency(*pDestM));
+			rDeps.push_back(new AccDependency(*pDestM, this));
 		else
 		{
 			assert(pDestM->GetLocation() == Register::kRa || pDestM->GetLocation() == Register::kRb);
-			rDeps.push_back(new RaRbDependency(*pDestM));
+			rDeps.push_back(new RaRbDependency(*pDestM, this));
 		}
 	}
 }
@@ -395,11 +395,11 @@ void IlInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 	rDeps.clear();
 
 	if (m_rDest.GetLocation() == Register::kAcc)
-		rDeps.push_back(new AccDependency(m_rDest));
+		rDeps.push_back(new AccDependency(m_rDest, this));
 	else
 	{
 		assert(m_rDest.GetLocation() == Register::kRa || m_rDest.GetLocation() == Register::kRb);
-		rDeps.push_back(new RaRbDependency(m_rDest));
+		rDeps.push_back(new RaRbDependency(m_rDest, this));
 	}
 }
 
@@ -410,8 +410,8 @@ void BranchInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 	assert(m_rDestA.GetLocation() == Register::kRa || m_rDestA.GetLocation() == Register::kRb);
 	assert(m_rDestM.GetLocation() == Register::kRa || m_rDestM.GetLocation() == Register::kRb);
 
-	rDeps.push_back(new RaRbDependency(m_rDestA));
-	rDeps.push_back(new RaRbDependency(m_rDestM));
+	rDeps.push_back(new RaRbDependency(m_rDestA, this));
+	rDeps.push_back(new RaRbDependency(m_rDestM, this));
 }
 
 ReorderControl::ReorderControl(bool begin)
@@ -436,7 +436,7 @@ bool ReorderControl::IsEnd(void)
 
 void AluInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
-	rRegs.clear();
+	rDeps.clear();
 
 	Register *pSourceA1 = m_rLeft.GetSourceRegA(true);
 	Register *pSourceA2 = m_rLeft.GetSourceRegB(true);
@@ -445,23 +445,23 @@ void AluInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 	Register *pSourceM2 = m_rRight.GetSourceRegB(true);
 
 	if (pSourceA1)
-		rRegs.push_back(*pSourceA1);
+		rDeps.push_back(new RegisterDependee(*pSourceA1));
 	if (pSourceA2)
-		rRegs.push_back(*pSourceA2);
+		rDeps.push_back(new RegisterDependee(*pSourceA2));
 	if (pSourceM1)
-		rRegs.push_back(*pSourceM1);
+		rDeps.push_back(new RegisterDependee(*pSourceM1));
 	if (pSourceM2)
-		rRegs.push_back(*pSourceM2);
+		rDeps.push_back(new RegisterDependee(*pSourceM2));
 }
 
 void BranchInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
-	rRegs.clear();
+	rDeps.clear();
 
 	if (m_pSource)
 	{
 		assert(m_pSource->GetLocation() == Register::kRa);
-		rRegs.push_back(*m_pSource);
+		rDeps.push_back(new RegisterDependee(*m_pSource));
 	}
 }
 
@@ -474,15 +474,15 @@ bool RegisterDependee::SatisfiesThis(DependencyBase& rDep)
 {
 	AccDependency *a = dynamic_cast<AccDependency *>(&rDep);
 
-	if (a->GetReg().GetLocation() == m_rReg.GetLocation() && a->GetReg().GetId() == m_rReg.GetId())
+	if (a && a->GetReg().GetLocation() == m_rReg.GetLocation() && a->GetReg().GetId() == m_rReg.GetId())
 		return true;
 
 	RaRbDependency *r = dynamic_cast<RaRbDependency *>(&rDep);
 
-	if (r->GetReg().GetLocation() == m_rReg.GetLocation() && r->GetReg().GetId() == m_rReg.GetId())
+	if (r && r->GetReg().GetLocation() == m_rReg.GetLocation() && r->GetReg().GetId() == m_rReg.GetId())
 		return true;
 
-	return true;
+	return false;
 }
 
 Register& RaRbDependency::GetReg()
@@ -494,3 +494,34 @@ Register& AccDependency::GetReg()
 {
 	return m_rReg;
 }
+
+bool RaRbDependency::ProvidesSameThing(DependencyBase &rOther)
+{
+	RaRbDependency *pOther = dynamic_cast<RaRbDependency *>(&rOther);
+
+	if (pOther)
+	{
+		if (pOther->GetReg().GetLocation() == GetReg().GetLocation()
+				&& pOther->GetReg().GetId() == GetReg().GetId())
+			return true;
+	}
+
+	return false;
+}
+
+bool AccDependency::ProvidesSameThing(DependencyBase &rOther)
+{
+	AccDependency *pOther = dynamic_cast<AccDependency *>(&rOther);
+
+	if (pOther)
+	{
+		assert(pOther->GetReg().GetLocation() == Register::kAcc);
+
+		if (pOther->GetReg().GetId() == GetReg().GetId())
+			return true;
+	}
+
+	return false;
+}
+
+

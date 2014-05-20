@@ -156,3 +156,53 @@ void ReorderControl::DebugPrint(int depth)
 
 	printf("reordering: %s\n", m_begin ? "TRUE" : "FALSE");
 }
+
+void Instruction::DebugPrintDeps(void)
+{
+	for (auto it = m_deps.begin(); it != m_deps.end(); it++)
+	{
+		(*it)->DebugPrint(0);
+	}
+}
+
+void DependencyBase::DebugPrint(int depth)
+{
+	for (int count = 0; count < depth; count++)
+		printf("\t");
+
+	printf("min cycles: %d\n", m_minCycles);
+	printf("hard dep: %s\n", m_hardDependency ? "TRUE" : "FALSE");
+	printf("dep provider: %p\n", m_pProvider);
+
+	m_rDep.DebugPrint(depth + 1);
+}
+
+void DependencyWithoutInterlock::DebugPrint(int depth)
+{
+	DependencyBase::DebugPrint(depth + 1);
+}
+
+void DependencyWithStall::DebugPrint(int depth)
+{
+	DependencyBase::DebugPrint(depth + 1);
+}
+
+void RaRbDependency::DebugPrint(int depth)
+{
+	DependencyWithoutInterlock::DebugPrint(depth + 1);
+}
+
+void AccDependency::DebugPrint(int depth)
+{
+	DependencyWithoutInterlock::DebugPrint(depth + 1);
+}
+
+void RegisterDependee::DebugPrint(int depth) const
+{
+	for (int count = 0; count < depth; count++)
+		printf("\t");
+
+	printf("RegisterDependee\n");
+
+	m_rReg.DebugPrint(depth + 1);
+}

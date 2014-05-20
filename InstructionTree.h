@@ -56,7 +56,10 @@ public:
 		};
 
 		inline Field(unsigned int size)
-		: m_totalSize(size)
+		: m_position(0),
+		  m_mask(0),
+		  m_value(0),
+		  m_totalSize(size)
 		{
 		};
 
@@ -171,6 +174,7 @@ class Dependee
 {
 public:
 	virtual bool SatisfiesThis(DependencyBase &rDep) = 0;
+	virtual void DebugPrint(int depth) const = 0;
 
 	typedef std::list<Dependee *> Dependencies;
 protected:
@@ -184,20 +188,28 @@ public:
 	virtual ~RegisterDependee() {};
 
 	virtual bool SatisfiesThis(DependencyBase &rDep);
+	virtual void DebugPrint(int depth) const;
 
 	Register &m_rReg;
 };
+
+class DependencyProvider;
 
 class DependencyBase
 {
 public:
 	typedef std::list<DependencyBase *> Dependencies;
 
+	virtual bool ProvidesSameThing(DependencyBase &) = 0;
+
+	virtual void DebugPrint(int depth);
+
 protected:
-	inline DependencyBase(int minCycles, bool hardDependency, const Dependee &rDep)
+	inline DependencyBase(int minCycles, bool hardDependency, const Dependee &rDep, DependencyProvider *pProvider)
 	: m_minCycles(minCycles),
 	  m_hardDependency(hardDependency),
-	  m_rDep(rDep)
+	  m_rDep(rDep),
+	  m_pProvider(pProvider)
 	{
 	};
 
@@ -206,30 +218,39 @@ protected:
 	int m_minCycles;
 	bool m_hardDependency;
 	const Dependee &m_rDep;
+	DependencyProvider *m_pProvider;
 };
 
 class DependencyWithoutInterlock : public DependencyBase
 {
 protected:
-	inline DependencyWithoutInterlock(int minCycles, bool hardDependency, const Dependee &rDep)
-	: DependencyBase(minCycles, hardDependency, rDep)
+	inline DependencyWithoutInterlock(int minCycles, bool hardDependency, const Dependee &rDep, DependencyProvider *pProvider)
+	: DependencyBase(minCycles, hardDependency, rDep, pProvider)
 	{
 	}
+
+	virtual void DebugPrint(int depth);
 };
 
 class DependencyWithStall : public DependencyBase
 {
 protected:
-	inline DependencyWithStall(int minCycles, bool hardDependency, const Dependee &rDep)
-	: DependencyBase(minCycles, hardDependency, rDep)
+	inline DependencyWithStall(int minCycles, bool hardDependency, const Dependee &rDep, DependencyProvider *pProvider)
+	: DependencyBase(minCycles, hardDependency, rDep, pProvider)
 	{
 	}
+
+	virtual void DebugPrint(int depth);
 };
 
 class RaRbDependency : public DependencyWithoutInterlock
 {
 public:
-	RaRbDependency(Register &rReg);
+	RaRbDependency(Register &rReg, DependencyProvider *pProvider);
+
+	virtual bool ProvidesSameThing(DependencyBase &);
+
+	virtual void DebugPrint(int depth);
 
 	Register &GetReg();
 protected:
@@ -239,7 +260,11 @@ protected:
 class AccDependency : public DependencyWithoutInterlock
 {
 public:
-	AccDependency(Register &rReg);
+	AccDependency(Register &rReg, DependencyProvider *pProvider);
+
+	virtual bool ProvidesSameThing(DependencyBase &);
+
+	virtual void DebugPrint(int depth);
 
 	Register &GetReg();
 protected:
@@ -271,6 +296,8 @@ public:
 
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps) = 0;
 	virtual void AddInputDep(DependencyBase &rDep) = 0;
+
+	virtual void DebugPrintDeps(void) = 0;
 };
 
 class Instruction : public Base, public Assemblable, public DependencyProvider, public DependencyConsumer
@@ -284,6 +311,8 @@ public:
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
 	virtual void AddInputDep(DependencyBase &rDep);
+
+	virtual void DebugPrintDeps(void);
 
 protected:
 	DependencyBase::Dependencies m_deps;
