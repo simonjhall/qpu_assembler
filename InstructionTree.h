@@ -190,7 +190,18 @@ public:
 	virtual bool SatisfiesThis(DependencyBase &rDep);
 	virtual void DebugPrint(int depth) const;
 
+protected:
 	Register &m_rReg;
+};
+
+class FlagsDependee : public Dependee
+{
+public:
+	FlagsDependee(void);
+	virtual ~FlagsDependee() {};
+
+	virtual bool SatisfiesThis(DependencyBase &rDep);
+	virtual void DebugPrint(int depth) const;
 };
 
 class DependencyProvider;
@@ -269,6 +280,16 @@ public:
 	Register &GetReg();
 protected:
 	Register &m_rReg;
+};
+
+class FlagsDependency : public DependencyWithoutInterlock
+{
+public:
+	FlagsDependency(DependencyProvider *pProvider);
+
+	virtual bool ProvidesSameThing(DependencyBase &);
+
+	virtual void DebugPrint(int depth);
 };
 
 /*class BranchDependency : public DependencyWithoutInterlock
@@ -401,6 +422,16 @@ public:
 			return 0;
 
 		return r;
+	}
+
+	inline bool GetSetsFlags(void)
+	{
+		return m_setFlags;
+	}
+
+	inline bool GetUsesFlags(void)
+	{
+		return !(m_rCondition.GetEncodedValue() == kAlways || m_rCondition.GetEncodedValue() == kNever);
 	}
 
 protected:

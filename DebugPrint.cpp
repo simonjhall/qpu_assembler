@@ -169,9 +169,14 @@ void DependencyBase::DebugPrint(int depth)
 {
 	for (int count = 0; count < depth; count++)
 		printf("\t");
-
 	printf("min cycles: %d\n", m_minCycles);
+
+	for (int count = 0; count < depth; count++)
+		printf("\t");
 	printf("hard dep: %s\n", m_hardDependency ? "TRUE" : "FALSE");
+
+	for (int count = 0; count < depth; count++)
+		printf("\t");
 	printf("dep provider: %p\n", m_pProvider);
 
 	m_rDep.DebugPrint(depth + 1);
@@ -179,11 +184,19 @@ void DependencyBase::DebugPrint(int depth)
 
 void DependencyWithoutInterlock::DebugPrint(int depth)
 {
+	for (int count = 0; count < depth; count++)
+		printf("\t");
+	printf("dep without interlock\n");
+
 	DependencyBase::DebugPrint(depth + 1);
 }
 
 void DependencyWithStall::DebugPrint(int depth)
 {
+	for (int count = 0; count < depth; count++)
+		printf("\t");
+	printf("dep with stall\n");
+
 	DependencyBase::DebugPrint(depth + 1);
 }
 
@@ -205,4 +218,17 @@ void RegisterDependee::DebugPrint(int depth) const
 	printf("RegisterDependee\n");
 
 	m_rReg.DebugPrint(depth + 1);
+}
+
+void FlagsDependency::DebugPrint(int depth)
+{
+	DependencyWithoutInterlock::DebugPrint(depth + 1);
+}
+
+void FlagsDependee::DebugPrint(int depth) const
+{
+	for (int count = 0; count < depth; count++)
+		printf("\t");
+
+	printf("FlagsDependee\n");
 }

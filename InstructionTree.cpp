@@ -330,14 +330,14 @@ Label::~Label()
 }
 
 RaRbDependency::RaRbDependency(Register &rReg, DependencyProvider *pProvider)
-: DependencyWithoutInterlock(2, false, RegisterDependee(rReg), pProvider),
+: DependencyWithoutInterlock(2, false, *new RegisterDependee(rReg), pProvider),
   m_rReg(rReg)
 {
 	assert(rReg.GetLocation() != Register::kAcc);
 }
 
 AccDependency::AccDependency(Register &rReg, DependencyProvider *pProvider)
-: DependencyWithoutInterlock(1, false, RegisterDependee(rReg), pProvider),
+: DependencyWithoutInterlock(1, false, *new RegisterDependee(rReg), pProvider),
   m_rReg(rReg)
 {
 	assert(rReg.GetLocation() == Register::kAcc);
@@ -388,6 +388,9 @@ void AluInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 			rDeps.push_back(new RaRbDependency(*pDestM, this));
 		}
 	}
+
+	if (m_rLeft.GetSetsFlags() || m_rRight.GetSetsFlags())
+		rDeps.push_back(new FlagsDependency(this));
 }
 
 void IlInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
@@ -401,6 +404,9 @@ void IlInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 		assert(m_rDest.GetLocation() == Register::kRa || m_rDest.GetLocation() == Register::kRb);
 		rDeps.push_back(new RaRbDependency(m_rDest, this));
 	}
+
+	if (m_setFlags)
+		rDeps.push_back(new FlagsDependency(this));
 }
 
 void BranchInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
@@ -452,6 +458,9 @@ void AluInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 		rDeps.push_back(new RegisterDependee(*pSourceM1));
 	if (pSourceM2)
 		rDeps.push_back(new RegisterDependee(*pSourceM2));
+
+	if (m_rLeft.GetUsesFlags() || m_rRight.GetUsesFlags())
+		rDeps.push_back(new FlagsDependee());
 }
 
 void BranchInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
@@ -463,6 +472,9 @@ void BranchInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 		assert(m_pSource->GetLocation() == Register::kRa);
 		rDeps.push_back(new RegisterDependee(*m_pSource));
 	}
+
+	if (m_rCondition.GetEncodedValue() != kAlwaysBr)
+		rDeps.push_back(new FlagsDependee());
 }
 
 RegisterDependee::RegisterDependee(Register& rReg)
@@ -524,4 +536,32 @@ bool AccDependency::ProvidesSameThing(DependencyBase &rOther)
 	return false;
 }
 
+FlagsDependency::FlagsDependency(DependencyProvider* pProvider)
+: DependencyWithoutInterlock(1, false, *new FlagsDependee, pProvider)
+{
+}
 
+bool FlagsDependency::ProvidesSameThing(DependencyBase &rOther)
+{
+	FlagsDependency *pOther = dynamic_cast<FlagsDependency *>(&rOther);
+
+	if (pOther)
+		return true;
+	else
+		return false;
+}
+
+FlagsDependee::FlagsDependee(void)
+: Dependee()
+{
+}
+
+bool FlagsDependee::SatisfiesThis(DependencyBase& rDep)
+{
+	FlagsDependency *a = dynamic_cast<FlagsDependency *>(&rDep);
+
+	if (a)
+		return true;
+	else
+		return false;
+}
