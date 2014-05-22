@@ -29,6 +29,78 @@ void ClearScoreboard(void)
 	s_scoreboard.clear();
 }
 
+std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start)
+{
+	std::list<Base *>::iterator out = s_statements.end();
+
+	ClearScoreboard();
+
+	for (auto it = start; it != s_statements.end(); it++)
+	{
+		DependencyConsumer *pConsumer = dynamic_cast<DependencyConsumer *>(*it);
+		DependencyProvider *pProvider = dynamic_cast<DependencyProvider *>(*it);
+
+		if (pConsumer)
+		{
+			Dependee::Dependencies deps;
+			pConsumer->GetInputDeps(deps);
+
+			for (auto d = deps.begin(); d != deps.end(); d++)
+			{
+				for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
+				{
+					DependencyBase *p = *s;
+					if ((*d)->SatisfiesThis(*p))
+					{
+						pConsumer->AddInputDep(*p);
+						break;
+					}
+				}
+			}
+		}
+
+		if (pProvider)
+		{
+			DependencyBase::Dependencies deps;
+			pProvider->GetOutputDeps(deps);
+
+			for (auto d = deps.begin(); d != deps.end(); d++)
+			{
+				for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
+				{
+					if ((*d)->ProvidesSameThing(*(*s)))
+					{
+						s_scoreboard.erase(s);
+						break;
+					}
+				}
+
+				s_scoreboard.push_back(*d);
+			}
+		}
+
+		if (dynamic_cast<BranchInstruction *>(*it))
+		{
+			out = ++it;
+			break;
+		}
+	}
+
+	int count = 0;
+	for (auto it = start; it != out; it++)
+	{
+		DependencyConsumer *pConsumer = dynamic_cast<DependencyConsumer *>(*it);
+		if (pConsumer)
+		{
+			printf("instruction count %d, provider %p\n", count, dynamic_cast<DependencyProvider *>(*it));
+			pConsumer->DebugPrintDeps();
+			count++;
+		}
+	}
+
+	return out;
+}
+
 int main(int argc, const char *argv[])
 {
 	unsigned int baseAddress = 0;
@@ -49,81 +121,14 @@ int main(int argc, const char *argv[])
 	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
 		(*it)->DebugPrint(0);
 
-	ClearScoreboard();
-
-	bool reorder_enabled = false;
-	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
+	auto start = s_statements.begin();
+	do
 	{
-		ReorderControl *pReorder = dynamic_cast<ReorderControl *>(*it);
-		if (pReorder && pReorder->IsBegin())
-		{
-			reorder_enabled = true;
-			ClearScoreboard();
-			continue;
-		}
-		else if (pReorder && pReorder->IsEnd())
-		{
-			reorder_enabled = false;
-			continue;
-		}
+		auto next_start = BuildDeps(start);
 
-		if (reorder_enabled)
-		{
-			DependencyConsumer *pConsumer = dynamic_cast<DependencyConsumer *>(*it);
-			DependencyProvider *pProvider = dynamic_cast<DependencyProvider *>(*it);
 
-			if (pConsumer)
-			{
-				Dependee::Dependencies deps;
-				pConsumer->GetInputDeps(deps);
-
-				for (auto d = deps.begin(); d != deps.end(); d++)
-				{
-					for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
-					{
-						DependencyBase *p = *s;
-						if ((*d)->SatisfiesThis(*p))
-						{
-							pConsumer->AddInputDep(*p);
-							break;
-						}
-					}
-				}
-			}
-
-			if (pProvider)
-			{
-				DependencyBase::Dependencies deps;
-				pProvider->GetOutputDeps(deps);
-
-				for (auto d = deps.begin(); d != deps.end(); d++)
-				{
-					for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
-					{
-						if ((*d)->ProvidesSameThing(*(*s)))
-						{
-							s_scoreboard.erase(s);
-							break;
-						}
-					}
-
-					s_scoreboard.push_back(*d);
-				}
-			}
-		}
-	}
-
-	int count = 0;
-	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
-	{
-		DependencyConsumer *pConsumer = dynamic_cast<DependencyConsumer *>(*it);
-		if (pConsumer)
-		{
-			printf("instruction count %d, provider %p\n", count, dynamic_cast<DependencyProvider *>(*it));
-			pConsumer->DebugPrintDeps();
-			count++;
-		}
-	}
+		start = next_start;
+	} while (start != s_statements.end());
 
 	unsigned int address = baseAddress;
 

@@ -155,7 +155,15 @@ public:
 
 	typedef std::list<Register> Registers;
 
-	bool operator <(const Register &rhs) const
+	inline bool IsZero(void)
+	{
+		if (m_loc != kAcc && m_id == 39)
+			return true;
+		else
+			return false;
+	}
+
+	inline bool operator <(const Register &rhs) const
 	{
 		if (m_loc == rhs.m_loc)
 			return m_id > rhs.m_id;

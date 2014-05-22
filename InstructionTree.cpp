@@ -367,7 +367,7 @@ void AluInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 	Register *pDestA = m_rLeft.GetDestReg(true);
 	Register *pDestM = m_rRight.GetDestReg(true);
 
-	if (pDestA)
+	if (pDestA && !pDestA->IsZero())
 	{
 		if (pDestA->GetLocation() == Register::kAcc)
 			rDeps.push_back(new AccDependency(*pDestA, this));
@@ -378,7 +378,7 @@ void AluInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 		}
 	}
 
-	if (pDestM)
+	if (pDestM && !pDestM->IsZero())
 	{
 		if (pDestM->GetLocation() == Register::kAcc)
 			rDeps.push_back(new AccDependency(*pDestM, this));
@@ -402,6 +402,7 @@ void IlInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 	else
 	{
 		assert(m_rDest.GetLocation() == Register::kRa || m_rDest.GetLocation() == Register::kRb);
+		assert(m_rDest.GetId() != 39);
 		rDeps.push_back(new RaRbDependency(m_rDest, this));
 	}
 
@@ -416,8 +417,10 @@ void BranchInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 	assert(m_rDestA.GetLocation() == Register::kRa || m_rDestA.GetLocation() == Register::kRb);
 	assert(m_rDestM.GetLocation() == Register::kRa || m_rDestM.GetLocation() == Register::kRb);
 
-	rDeps.push_back(new RaRbDependency(m_rDestA, this));
-	rDeps.push_back(new RaRbDependency(m_rDestM, this));
+	if (!m_rDestA.IsZero())
+		rDeps.push_back(new RaRbDependency(m_rDestA, this));
+	if (!m_rDestM.IsZero())
+		rDeps.push_back(new RaRbDependency(m_rDestM, this));
 }
 
 ReorderControl::ReorderControl(bool begin)
@@ -450,13 +453,13 @@ void AluInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 	Register *pSourceM1 = m_rRight.GetSourceRegA(true);
 	Register *pSourceM2 = m_rRight.GetSourceRegB(true);
 
-	if (pSourceA1)
+	if (pSourceA1 && !pSourceA1->IsZero())
 		rDeps.push_back(new RegisterDependee(*pSourceA1));
-	if (pSourceA2)
+	if (pSourceA2 && !pSourceA2->IsZero())
 		rDeps.push_back(new RegisterDependee(*pSourceA2));
-	if (pSourceM1)
+	if (pSourceM1 && !pSourceM1->IsZero())
 		rDeps.push_back(new RegisterDependee(*pSourceM1));
-	if (pSourceM2)
+	if (pSourceM2 && !pSourceM2->IsZero())
 		rDeps.push_back(new RegisterDependee(*pSourceM2));
 
 	if (m_rLeft.GetUsesFlags() || m_rRight.GetUsesFlags())
@@ -467,7 +470,7 @@ void BranchInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
 	rDeps.clear();
 
-	if (m_pSource)
+	if (m_pSource && !m_pSource->IsZero())
 	{
 		assert(m_pSource->GetLocation() == Register::kRa);
 		rDeps.push_back(new RegisterDependee(*m_pSource));
