@@ -20,11 +20,13 @@
 int yyparse (void);
 
 extern FILE *yyin;
-extern std::list<Base *> s_statements;
+extern std::list<Base *> s_statements, s_statementsRescheduled;
 
 std::list<Label *> s_declaredLabels;
 std::list<Label *> s_usedLabels;
 std::list<DependencyBase *> s_scoreboard;
+
+Instruction &s_rSpareNop = AluInstruction::Nop();
 
 void ClearScoreboard(void)
 {
@@ -103,11 +105,20 @@ std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start)
 	return out;
 }
 
-Instruction &s_rSpareNop = AluInstruction::Nop();
+void EmitNonInstructions(std::list<Base *>::iterator start, std::list<Base *>::iterator end)
+{
+	for (auto it = start; it != end; it++)
+		if (!dynamic_cast<Instruction *>(*it))
+			s_statementsRescheduled.push_back(*it);
+}
+
+static int schedules_run = 0;
 
 void Schedule(std::list<DependencyProvider *> runInstructions, std::list<DependencyConsumer *> instructionsToRun, std::list<DependencyProvider *> &rBestSchedule, bool &rFoundSchedule, bool branchInserted, int delaySlotsToFill)
 {
 	assert(instructionsToRun.size() != 0);
+
+	schedules_run++;
 
 	for (auto inst = instructionsToRun.begin(); inst != instructionsToRun.end(); inst++)
 	{
@@ -221,6 +232,8 @@ int main(int argc, const char *argv[])
 	do
 	{
 		auto next_start = BuildDeps(start);
+		EmitNonInstructions(start, next_start);
+
 		std::list<DependencyProvider *> runInstructions;
 		std::list<DependencyConsumer *> instructionsToRun;
 
@@ -236,25 +249,30 @@ int main(int argc, const char *argv[])
 
 		if (instructionsToRun.size() != 0)
 		{
+			schedules_run = 0;
 			Schedule(runInstructions, instructionsToRun, bestSchedule, foundSchedule, false, 3);
 
 			assert(foundSchedule);
 
 			for (auto it = bestSchedule.begin(); it != bestSchedule.end(); it++)
-				if (dynamic_cast<Base *>(*it))
-					dynamic_cast<Base *>(*it)->DebugPrint(0);
+			{
+				Base *p = dynamic_cast<Base *>(*it);
+				assert(p);
 
-			printf("sequence of %d instructions run in %d cycles\n", instructionsToRun.size(), bestSchedule.size());
+				p->DebugPrint(0);
+				s_statementsRescheduled.push_back(p);
+			}
+
+			printf("sequence of %d instructions run in %d cycles, took %d its\n", instructionsToRun.size(), bestSchedule.size(), schedules_run);
 		}
 
 		start = next_start;
 	} while (start != s_statements.end());
-	exit(0);
 
 	unsigned int address = baseAddress;
 
 	//walk it once, to get addresses and fill in labels
-	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
+	for (auto it = s_statementsRescheduled.begin(); it != s_statementsRescheduled.end(); it++)
 	{
 		Label *l = dynamic_cast<Label *>(*it);
 		if (l)
@@ -302,7 +320,7 @@ int main(int argc, const char *argv[])
 	address = baseAddress;
 
 	//and a second time for the output
-	for (auto it = s_statements.begin(); it != s_statements.end(); it++)
+	for (auto it = s_statementsRescheduled.begin(); it != s_statementsRescheduled.end(); it++)
 	{
 		Assemblable *p = dynamic_cast<Assemblable *>(*it);
 		if (p)
@@ -342,6 +360,6 @@ int main(int argc, const char *argv[])
 		}
 	}
 
-return 0;
+	return 0;
 }
 

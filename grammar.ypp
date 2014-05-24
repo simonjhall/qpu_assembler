@@ -15,7 +15,7 @@ extern FILE *yyin;
 int yylex(); 
 int yyerror(const char *p) { printf("Parse error!, \"%s\"\n", p); return 0; }
 
-std::list<Base *> s_statements;
+std::list<Base *> s_statements, s_statementsRescheduled;
 
 %}
 
