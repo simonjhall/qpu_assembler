@@ -355,7 +355,7 @@ void Instruction::GetInputDeps(Dependee::Dependencies &rDeps)
 	rDeps.clear();
 }
 
-void Instruction::AddInputDep(DependencyBase& rDep)
+void Instruction::AddResolvedInputDep(DependencyBase& rDep)
 {
 	m_deps.push_back(&rDep);
 }
@@ -567,4 +567,74 @@ bool FlagsDependee::SatisfiesThis(DependencyBase& rDep)
 		return true;
 	else
 		return false;
+}
+
+bool DependencyWithStall::CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds)
+{
+	int count = 1;
+	for (auto it = rRunInstructions.rbegin(); it != rRunInstructions.rend(); it++, count++)
+		if (*it == m_pProvider)
+		{
+			rNopsNeeds = 0;
+			if ((m_hardDependency && count == m_minCycles) || !m_hardDependency)
+				return false;
+			else
+				return true;
+		}
+
+	return false;
+}
+
+bool DependencyWithoutInterlock::CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds)
+{
+	int count = 1;
+	for (auto it = rRunInstructions.rbegin(); it != rRunInstructions.rend(); it++, count++)
+		if (*it == m_pProvider)
+		{
+			if (m_hardDependency)
+			{
+				if (m_minCycles == count)
+					return true;
+				else
+					return false;
+			}
+			else
+			{
+				int diff = m_minCycles - count;
+
+				if (diff > 0)
+					rNopsNeeds = diff;
+				else
+					rNopsNeeds = 0;
+
+				return true;
+			}
+		}
+
+	return false;
+}
+
+AddPipeInstruction& AddPipeInstruction::Nop(void)
+{
+	return *new AddPipeInstruction(*new Opcode(kAddNop),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new InstructionCondition(kNever),
+					false);
+}
+
+MulPipeInstruction& MulPipeInstruction::Nop(void)
+{
+	return *new MulPipeInstruction(*new Opcode(kMulNop),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new Register(Register::kAcc, 0),
+					*new InstructionCondition(kNever),
+					false);
+}
+
+Instruction& AluInstruction::Nop(void)
+{
+	return *new AluInstruction(AddPipeInstruction::Nop(), MulPipeInstruction::Nop(), *new AluSignal(kNoSignal));
 }

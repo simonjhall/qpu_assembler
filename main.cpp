@@ -14,6 +14,8 @@
 #include <stdlib.h>
 
 #include <map>
+#include <set>
+#include <vector>
 
 int yyparse (void);
 
@@ -52,7 +54,7 @@ std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start)
 					DependencyBase *p = *s;
 					if ((*d)->SatisfiesThis(*p))
 					{
-						pConsumer->AddInputDep(*p);
+						pConsumer->AddResolvedInputDep(*p);
 						break;
 					}
 				}
@@ -93,12 +95,105 @@ std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start)
 		if (pConsumer)
 		{
 			printf("instruction count %d, provider %p\n", count, dynamic_cast<DependencyProvider *>(*it));
-			pConsumer->DebugPrintDeps();
+			pConsumer->DebugPrintResolvedDeps();
 			count++;
 		}
 	}
 
 	return out;
+}
+
+Instruction &s_rSpareNop = AluInstruction::Nop();
+
+void Schedule(std::list<DependencyProvider *> runInstructions, std::list<DependencyConsumer *> instructionsToRun, std::list<DependencyProvider *> &rBestSchedule, bool &rFoundSchedule, bool branchInserted, int delaySlotsToFill)
+{
+	assert(instructionsToRun.size() != 0);
+
+	for (auto inst = instructionsToRun.begin(); inst != instructionsToRun.end(); inst++)
+	{
+		//check if this one can run
+		DependencyBase::Dependencies deps = (*inst)->GetResolvedInputDeps();
+
+		int nopsNeeded = 0;
+		size_t canRun = 0;
+
+		for (auto dep = deps.begin(); dep != deps.end(); dep++)
+		{
+			int nops;
+			if (!(*dep)->CanRun(runInstructions, nops))
+				break;
+			else
+			{
+				if (nops > nopsNeeded)
+					nopsNeeded = nops;
+				canRun++;
+			}
+		}
+
+		if (canRun != deps.size())
+			break;
+
+		std::list<DependencyProvider *> newRunInstructions = runInstructions;
+
+		//we can run, and we know how many nops need to be inserted
+		for (auto count = 0; count < nopsNeeded; count++)
+			newRunInstructions.push_back(&s_rSpareNop);
+
+		//add in the instruction
+		Instruction *i = dynamic_cast<Instruction *>(*inst);
+		assert(i);
+		newRunInstructions.push_back(i);
+
+		bool isBranch;
+		if (dynamic_cast<BranchInstruction *>(i))
+			isBranch = true;
+		else
+			isBranch = false;
+
+		//only one branch
+		assert((isBranch && !branchInserted)
+				|| !isBranch);
+
+		if (instructionsToRun.size() == 1)		//we already have processed the last one
+		{
+			//add delay slot nops
+			for (auto count = 0; count < delaySlotsToFill; count++)
+				newRunInstructions.push_back(&s_rSpareNop);
+
+			if (rFoundSchedule)
+			{
+				if (rBestSchedule.size() < newRunInstructions.size())
+					return;			//not worth it
+				else
+				{
+					rBestSchedule = newRunInstructions;
+					return;
+				}
+			}
+			else
+			{
+				rBestSchedule = newRunInstructions;
+				rFoundSchedule = true;
+				return;
+			}
+		}
+		else
+		{
+			//now make a new instructionsToRun
+			std::list<DependencyConsumer *> newInstructionsToRun;
+			for (auto it = instructionsToRun.begin(); it != instructionsToRun.end(); it++)
+				if (*it != *inst)
+					newInstructionsToRun.push_back(*it);
+
+			//not worth pursuing
+			if (rFoundSchedule && newInstructionsToRun.size() >= rBestSchedule.size())
+				return;
+
+			Schedule(newRunInstructions, newInstructionsToRun, rBestSchedule, rFoundSchedule,
+					branchInserted ? branchInserted : isBranch,
+					(branchInserted || isBranch) ? delaySlotsToFill - 1 : delaySlotsToFill);
+		}
+	}
 }
 
 int main(int argc, const char *argv[])
@@ -122,13 +217,39 @@ int main(int argc, const char *argv[])
 		(*it)->DebugPrint(0);
 
 	auto start = s_statements.begin();
+
 	do
 	{
 		auto next_start = BuildDeps(start);
+		std::list<DependencyProvider *> runInstructions;
+		std::list<DependencyConsumer *> instructionsToRun;
 
+		std::list<DependencyProvider *> bestSchedule;
+		bool foundSchedule = false;
+
+		for (auto it = start; it != next_start; it++)
+		{
+			DependencyConsumer *i = dynamic_cast<DependencyConsumer *>(*it);
+			if (i)
+				instructionsToRun.push_back(i);
+		}
+
+		if (instructionsToRun.size() != 0)
+		{
+			Schedule(runInstructions, instructionsToRun, bestSchedule, foundSchedule, false, 3);
+
+			assert(foundSchedule);
+
+			for (auto it = bestSchedule.begin(); it != bestSchedule.end(); it++)
+				if (dynamic_cast<Base *>(*it))
+					dynamic_cast<Base *>(*it)->DebugPrint(0);
+
+			printf("sequence of %d instructions run in %d cycles\n", instructionsToRun.size(), bestSchedule.size());
+		}
 
 		start = next_start;
 	} while (start != s_statements.end());
+	exit(0);
 
 	unsigned int address = baseAddress;
 

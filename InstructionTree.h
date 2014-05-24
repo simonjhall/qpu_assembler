@@ -220,6 +220,7 @@ public:
 	typedef std::list<DependencyBase *> Dependencies;
 
 	virtual bool ProvidesSameThing(DependencyBase &) = 0;
+	virtual bool CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds) = 0;
 
 	virtual void DebugPrint(int depth);
 
@@ -242,6 +243,8 @@ protected:
 
 class DependencyWithoutInterlock : public DependencyBase
 {
+	virtual bool CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds);
+
 protected:
 	inline DependencyWithoutInterlock(int minCycles, bool hardDependency, const Dependee &rDep, DependencyProvider *pProvider)
 	: DependencyBase(minCycles, hardDependency, rDep, pProvider)
@@ -253,6 +256,8 @@ protected:
 
 class DependencyWithStall : public DependencyBase
 {
+	virtual bool CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds);
+
 protected:
 	inline DependencyWithStall(int minCycles, bool hardDependency, const Dependee &rDep, DependencyProvider *pProvider)
 	: DependencyBase(minCycles, hardDependency, rDep, pProvider)
@@ -324,9 +329,10 @@ public:
 	inline virtual ~DependencyConsumer() {};
 
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps) = 0;
-	virtual void AddInputDep(DependencyBase &rDep) = 0;
+	virtual void AddResolvedInputDep(DependencyBase &rDep) = 0;
+	virtual DependencyBase::Dependencies &GetResolvedInputDeps(void) = 0;
 
-	virtual void DebugPrintDeps(void) = 0;
+	virtual void DebugPrintResolvedDeps(void) = 0;
 };
 
 class Instruction : public Base, public Assemblable, public DependencyProvider, public DependencyConsumer
@@ -339,9 +345,10 @@ public:
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
-	virtual void AddInputDep(DependencyBase &rDep);
+	virtual void AddResolvedInputDep(DependencyBase &rDep);
+	virtual DependencyBase::Dependencies &GetResolvedInputDeps(void);
 
-	virtual void DebugPrintDeps(void);
+	virtual void DebugPrintResolvedDeps(void);
 
 protected:
 	DependencyBase::Dependencies m_deps;
@@ -460,6 +467,8 @@ public:
 	virtual ~AddPipeInstruction();
 
 	virtual void Assemble(Fields &rFields);
+
+	static AddPipeInstruction &Nop(void);
 private:
 };
 
@@ -470,6 +479,8 @@ public:
 	virtual ~MulPipeInstruction();
 
 	virtual void Assemble(Fields &rFields);
+
+	static MulPipeInstruction &Nop(void);
 private:
 };
 
@@ -501,6 +512,8 @@ public:
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
+
+	static Instruction &Nop(void);
 private:
 	AddPipeInstruction &m_rLeft;
 	MulPipeInstruction &m_rRight;

@@ -157,7 +157,12 @@ void ReorderControl::DebugPrint(int depth)
 	printf("reordering: %s\n", m_begin ? "TRUE" : "FALSE");
 }
 
-void Instruction::DebugPrintDeps(void)
+DependencyBase::Dependencies& Instruction::GetResolvedInputDeps(void)
+{
+	return m_deps;
+}
+
+void Instruction::DebugPrintResolvedDeps(void)
 {
 	for (auto it = m_deps.begin(); it != m_deps.end(); it++)
 	{
