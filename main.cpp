@@ -24,20 +24,12 @@ extern std::list<Base *> s_statements, s_statementsRescheduled;
 
 std::list<Label *> s_declaredLabels;
 std::list<Label *> s_usedLabels;
-std::list<DependencyBase *> s_scoreboard;
 
 Instruction &s_rSpareNop = AluInstruction::Nop();
 
-void ClearScoreboard(void)
-{
-	s_scoreboard.clear();
-}
-
-std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start)
+std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::list<DependencyBase *> &rScoreboard)
 {
 	std::list<Base *>::iterator out = s_statements.end();
-
-	ClearScoreboard();
 
 	for (auto it = start; it != s_statements.end(); it++)
 	{
@@ -51,7 +43,7 @@ std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start)
 
 			for (auto d = deps.begin(); d != deps.end(); d++)
 			{
-				for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
+				for (auto s = rScoreboard.begin(); s != rScoreboard.end(); s++)
 				{
 					DependencyBase *p = *s;
 					if ((*d)->SatisfiesThis(*p))
@@ -70,16 +62,16 @@ std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start)
 
 			for (auto d = deps.begin(); d != deps.end(); d++)
 			{
-				for (auto s = s_scoreboard.begin(); s != s_scoreboard.end(); s++)
+				for (auto s = rScoreboard.begin(); s != rScoreboard.end(); s++)
 				{
 					if ((*d)->ProvidesSameThing(*(*s)))
 					{
-						s_scoreboard.erase(s);
+						rScoreboard.erase(s);
 						break;
 					}
 				}
 
-				s_scoreboard.push_back(*d);
+				rScoreboard.push_back(*d);
 			}
 		}
 
@@ -113,47 +105,23 @@ void EmitNonInstructions(std::list<Base *>::iterator start, std::list<Base *>::i
 }
 
 static int schedules_run = 0;
+static int found_solutions = 0;
 
-void Schedule(std::list<DependencyProvider *> runInstructions, std::list<DependencyConsumer *> instructionsToRun, std::list<DependencyProvider *> &rBestSchedule, bool &rFoundSchedule, bool branchInserted, int delaySlotsToFill)
+void Schedule(std::list<DependencyProvider *> runInstructions, std::list<DependencyConsumer *> instructionsToRun,
+		std::map<DependencyBase *, int> scoreboard, std::list<DependencyBase *> &rFinalScoreboard,
+		std::list<DependencyProvider *> &rBestSchedule, bool &rFoundSchedule,
+		bool branchInserted, int delaySlotsToFill,
+		int currentCycle)
 {
 	assert(instructionsToRun.size() != 0);
+	assert(delaySlotsToFill >= 0);
 
 	schedules_run++;
 
 	for (auto inst = instructionsToRun.begin(); inst != instructionsToRun.end(); inst++)
 	{
-		//check if this one can run
-		DependencyBase::Dependencies deps = (*inst)->GetResolvedInputDeps();
-
-		int nopsNeeded = 0;
-		size_t canRun = 0;
-
-		for (auto dep = deps.begin(); dep != deps.end(); dep++)
-		{
-			int nops;
-			if (!(*dep)->CanRun(runInstructions, nops))
-				break;
-			else
-			{
-				if (nops > nopsNeeded)
-					nopsNeeded = nops;
-				canRun++;
-			}
-		}
-
-		if (canRun != deps.size())
-			break;
-
-		std::list<DependencyProvider *> newRunInstructions = runInstructions;
-
-		//we can run, and we know how many nops need to be inserted
-		for (auto count = 0; count < nopsNeeded; count++)
-			newRunInstructions.push_back(&s_rSpareNop);
-
-		//add in the instruction
 		Instruction *i = dynamic_cast<Instruction *>(*inst);
 		assert(i);
-		newRunInstructions.push_back(i);
 
 		bool isBranch;
 		if (dynamic_cast<BranchInstruction *>(i))
@@ -165,15 +133,92 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 		assert((isBranch && !branchInserted)
 				|| !isBranch);
 
+		//no point in running more if we have more instructions to do that branch delay slots free
+		if (isBranch && (instructionsToRun.size() - 1 > 3))
+			continue;
+
+		//check if this one can run
+		DependencyBase::Dependencies deps = (*inst)->GetResolvedInputDeps();
+
+		int nopsNeeded = 0;
+		size_t canRun = 0;
+
+		for (auto dep = deps.begin(); dep != deps.end(); dep++)
+		{
+			int nops;
+			if (!(*dep)->CanRun(scoreboard, nops, currentCycle))
+				break;
+			else
+			{
+				if (nops > nopsNeeded)
+					nopsNeeded = nops;
+				canRun++;
+			}
+		}
+
+		if (canRun != deps.size())
+			continue;
+
+		std::list<DependencyProvider *> newRunInstructions = runInstructions;
+
+		//we can run, and we know how many nops need to be inserted
+		for (auto count = 0; count < nopsNeeded; count++)
+			newRunInstructions.push_back(&s_rSpareNop);
+
+		//add in the instruction
+		newRunInstructions.push_back(i);
+
+		//write to the scoreboard
+		DependencyBase::Dependencies outDeps;
+		i->GetOutputDeps(outDeps);
+
+		std::map<DependencyBase *, int> newScoreboard = scoreboard;
+
+		//whilst getting rid of anything which already provides that dep
+		for (auto d = outDeps.begin(); d != outDeps.end(); d++)
+		{
+			for (auto s = newScoreboard.begin(); s != newScoreboard.end(); s++)
+				if ((*d)->ProvidesSameThing(*s->first))
+				{
+					newScoreboard.erase(s);
+					break;
+				}
+			newScoreboard[*d] = currentCycle;
+		}
+
+
 		if (instructionsToRun.size() == 1)		//we already have processed the last one
 		{
+			//check the scoreboard matches the final scoreboard
+			for (auto final = rFinalScoreboard.begin(); final != rFinalScoreboard.end(); final++)
+			{
+				bool found = false;
+				for (auto result = newScoreboard.begin(); result != newScoreboard.end(); result++)
+				{
+					if (*final == result->first)
+					{
+						found = true;
+						break;
+					}
+//					if ((*final)->ProvidesSameThing(*result->first))
+//						printf("same dep provided by a different provider\n");
+				}
+
+				if (!found)
+					return;			//scoreboard does not match what is expected
+			}
+
 			//add delay slot nops
 			for (auto count = 0; count < delaySlotsToFill; count++)
 				newRunInstructions.push_back(&s_rSpareNop);
 
+			found_solutions++;
+
+			auto size = newRunInstructions.size();
+
 			if (rFoundSchedule)
 			{
-				if (rBestSchedule.size() < newRunInstructions.size())
+				if (rBestSchedule.size() < size)
 					return;			//not worth it
 				else
 				{
@@ -200,9 +245,12 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 			if (rFoundSchedule && newInstructionsToRun.size() >= rBestSchedule.size())
 				return;
 
-			Schedule(newRunInstructions, newInstructionsToRun, rBestSchedule, rFoundSchedule,
+			Schedule(newRunInstructions, newInstructionsToRun,
+					newScoreboard, rFinalScoreboard,
+					rBestSchedule, rFoundSchedule,
 					branchInserted ? branchInserted : isBranch,
-					(branchInserted || isBranch) ? delaySlotsToFill - 1 : delaySlotsToFill);
+					(branchInserted || isBranch) ? delaySlotsToFill - 1 : delaySlotsToFill,
+					currentCycle + 1);
 		}
 	}
 }
@@ -231,7 +279,8 @@ int main(int argc, const char *argv[])
 
 	do
 	{
-		auto next_start = BuildDeps(start);
+		std::list<DependencyBase *> finalScoreboard;
+		auto next_start = BuildDeps(start, finalScoreboard);
 		EmitNonInstructions(start, next_start);
 
 		std::list<DependencyProvider *> runInstructions;
@@ -250,7 +299,12 @@ int main(int argc, const char *argv[])
 		if (instructionsToRun.size() != 0)
 		{
 			schedules_run = 0;
-			Schedule(runInstructions, instructionsToRun, bestSchedule, foundSchedule, false, 3);
+			std::map<DependencyBase *, int> scoreboard;
+			Schedule(runInstructions, instructionsToRun,
+					scoreboard, finalScoreboard,
+					bestSchedule, foundSchedule,
+					false, 3,
+					0);
 
 			assert(foundSchedule);
 
@@ -263,7 +317,7 @@ int main(int argc, const char *argv[])
 				s_statementsRescheduled.push_back(p);
 			}
 
-			printf("sequence of %d instructions run in %d cycles, took %d its\n", instructionsToRun.size(), bestSchedule.size(), schedules_run);
+			printf("sequence of %d instructions run in %d cycles, took %d its with %d working solutions\n", instructionsToRun.size(), bestSchedule.size(), schedules_run, found_solutions);
 		}
 
 		start = next_start;

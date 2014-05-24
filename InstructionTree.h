@@ -11,6 +11,7 @@
 #include "shared.h"
 
 #include <list>
+#include <map>
 #include <functional>
 #include <stdint.h>
 
@@ -220,7 +221,7 @@ public:
 	typedef std::list<DependencyBase *> Dependencies;
 
 	virtual bool ProvidesSameThing(DependencyBase &) = 0;
-	virtual bool CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds) = 0;
+	virtual bool CanRun(std::map<DependencyBase *, int> &rScoreboard, int &rNopsNeeds, int currentCycle) = 0;
 
 	virtual void DebugPrint(int depth);
 
@@ -243,7 +244,7 @@ protected:
 
 class DependencyWithoutInterlock : public DependencyBase
 {
-	virtual bool CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds);
+	virtual bool CanRun(std::map<DependencyBase *, int> &rScoreboard, int &rNopsNeeds, int currentCycle);
 
 protected:
 	inline DependencyWithoutInterlock(int minCycles, bool hardDependency, const Dependee &rDep, DependencyProvider *pProvider)
@@ -256,7 +257,7 @@ protected:
 
 class DependencyWithStall : public DependencyBase
 {
-	virtual bool CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds);
+	virtual bool CanRun(std::map<DependencyBase *, int> &rScoreboard, int &rNopsNeeds, int currentCycle);
 
 protected:
 	inline DependencyWithStall(int minCycles, bool hardDependency, const Dependee &rDep, DependencyProvider *pProvider)
@@ -352,6 +353,8 @@ public:
 
 protected:
 	DependencyBase::Dependencies m_deps;
+	DependencyBase::Dependencies m_outputDeps;
+	Dependee::Dependencies m_inputDeps;
 };
 
 class SmallImm : public SecondSource, public Assemblable
@@ -514,6 +517,7 @@ public:
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
 
 	static Instruction &Nop(void);
+
 private:
 	AddPipeInstruction &m_rLeft;
 	MulPipeInstruction &m_rRight;

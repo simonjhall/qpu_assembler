@@ -146,6 +146,54 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 {
 	if (!force)
 		assert(BasePipeInstruction::AreCompatible(rLeft, rRight, rSignal));
+
+	//build output deps
+	Register *pDestA = m_rLeft.GetDestReg(true);
+	Register *pDestM = m_rRight.GetDestReg(true);
+
+	if (pDestA && !pDestA->IsZero())
+	{
+		if (pDestA->GetLocation() == Register::kAcc)
+			m_outputDeps.push_back(new AccDependency(*pDestA, this));
+		else
+		{
+			assert(pDestA->GetLocation() == Register::kRa || pDestA->GetLocation() == Register::kRb);
+			m_outputDeps.push_back(new RaRbDependency(*pDestA, this));
+		}
+	}
+
+	if (pDestM && !pDestM->IsZero())
+	{
+		if (pDestM->GetLocation() == Register::kAcc)
+			m_outputDeps.push_back(new AccDependency(*pDestM, this));
+		else
+		{
+			assert(pDestM->GetLocation() == Register::kRa || pDestM->GetLocation() == Register::kRb);
+			m_outputDeps.push_back(new RaRbDependency(*pDestM, this));
+		}
+	}
+
+	if (m_rLeft.GetSetsFlags() || m_rRight.GetSetsFlags())
+		m_outputDeps.push_back(new FlagsDependency(this));
+
+	//build input deps
+	Register *pSourceA1 = m_rLeft.GetSourceRegA(true);
+	Register *pSourceA2 = m_rLeft.GetSourceRegB(true);
+
+	Register *pSourceM1 = m_rRight.GetSourceRegA(true);
+	Register *pSourceM2 = m_rRight.GetSourceRegB(true);
+
+	if (pSourceA1 && !pSourceA1->IsZero())
+		m_inputDeps.push_back(new RegisterDependee(*pSourceA1));
+	if (pSourceA2 && !pSourceA2->IsZero())
+		m_inputDeps.push_back(new RegisterDependee(*pSourceA2));
+	if (pSourceM1 && !pSourceM1->IsZero())
+		m_inputDeps.push_back(new RegisterDependee(*pSourceM1));
+	if (pSourceM2 && !pSourceM2->IsZero())
+		m_inputDeps.push_back(new RegisterDependee(*pSourceM2));
+
+	if (m_rLeft.GetUsesFlags() || m_rRight.GetUsesFlags())
+		m_inputDeps.push_back(new FlagsDependee());
 }
 
 AluInstruction::~AluInstruction()
@@ -239,6 +287,19 @@ IlInstruction::IlInstruction(Register& rDest, Value& rImmediate,
   m_setFlags(setFlags)
 {
 	m_rImmediate.SetSize(4);
+
+	//output deps
+	if (m_rDest.GetLocation() == Register::kAcc)
+		m_outputDeps.push_back(new AccDependency(m_rDest, this));
+	else
+	{
+		assert(m_rDest.GetLocation() == Register::kRa || m_rDest.GetLocation() == Register::kRb);
+		assert(m_rDest.GetId() != 39);
+		m_outputDeps.push_back(new RaRbDependency(m_rDest, this));
+	}
+
+	if (m_setFlags)
+		m_outputDeps.push_back(new FlagsDependency(this));
 }
 
 IlInstruction::~IlInstruction()
@@ -264,6 +325,24 @@ BranchInstruction::BranchInstruction(bool absolute, BrCondition& rCond,
   m_pSource(&rSource),
   m_rImm(rImm)
 {
+	//output deps
+	assert(m_rDestA.GetLocation() == Register::kRa || m_rDestA.GetLocation() == Register::kRb);
+	assert(m_rDestM.GetLocation() == Register::kRa || m_rDestM.GetLocation() == Register::kRb);
+
+	if (!m_rDestA.IsZero())
+		m_outputDeps.push_back(new RaRbDependency(m_rDestA, this));
+	if (!m_rDestM.IsZero())
+		m_outputDeps.push_back(new RaRbDependency(m_rDestM, this));
+
+	//input deps
+	if (m_pSource && !m_pSource->IsZero())
+	{
+		assert(m_pSource->GetLocation() == Register::kRa);
+		m_inputDeps.push_back(new RegisterDependee(*m_pSource));
+	}
+
+	if (m_rCondition.GetEncodedValue() != kAlwaysBr)
+		m_inputDeps.push_back(new FlagsDependee());
 }
 
 BranchInstruction::BranchInstruction(bool absolute, BrCondition& rCond,
@@ -275,6 +354,24 @@ BranchInstruction::BranchInstruction(bool absolute, BrCondition& rCond,
   m_pSource(0),
   m_rImm(rImm)
 {
+	//output deps
+	assert(m_rDestA.GetLocation() == Register::kRa || m_rDestA.GetLocation() == Register::kRb);
+	assert(m_rDestM.GetLocation() == Register::kRa || m_rDestM.GetLocation() == Register::kRb);
+
+	if (!m_rDestA.IsZero())
+		m_outputDeps.push_back(new RaRbDependency(m_rDestA, this));
+	if (!m_rDestM.IsZero())
+		m_outputDeps.push_back(new RaRbDependency(m_rDestM, this));
+
+	//input deps
+	if (m_pSource && !m_pSource->IsZero())
+	{
+		assert(m_pSource->GetLocation() == Register::kRa);
+		m_inputDeps.push_back(new RegisterDependee(*m_pSource));
+	}
+
+	if (m_rCondition.GetEncodedValue() != kAlwaysBr)
+		m_inputDeps.push_back(new FlagsDependee());
 }
 
 BranchInstruction::~BranchInstruction()
@@ -352,7 +449,8 @@ void Instruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 
 void Instruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
-	rDeps.clear();
+	assert(m_inputDeps.size() == 0);
+	rDeps = m_inputDeps;
 }
 
 void Instruction::AddResolvedInputDep(DependencyBase& rDep)
@@ -362,65 +460,17 @@ void Instruction::AddResolvedInputDep(DependencyBase& rDep)
 
 void AluInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 {
-	rDeps.clear();
-
-	Register *pDestA = m_rLeft.GetDestReg(true);
-	Register *pDestM = m_rRight.GetDestReg(true);
-
-	if (pDestA && !pDestA->IsZero())
-	{
-		if (pDestA->GetLocation() == Register::kAcc)
-			rDeps.push_back(new AccDependency(*pDestA, this));
-		else
-		{
-			assert(pDestA->GetLocation() == Register::kRa || pDestA->GetLocation() == Register::kRb);
-			rDeps.push_back(new RaRbDependency(*pDestA, this));
-		}
-	}
-
-	if (pDestM && !pDestM->IsZero())
-	{
-		if (pDestM->GetLocation() == Register::kAcc)
-			rDeps.push_back(new AccDependency(*pDestM, this));
-		else
-		{
-			assert(pDestM->GetLocation() == Register::kRa || pDestM->GetLocation() == Register::kRb);
-			rDeps.push_back(new RaRbDependency(*pDestM, this));
-		}
-	}
-
-	if (m_rLeft.GetSetsFlags() || m_rRight.GetSetsFlags())
-		rDeps.push_back(new FlagsDependency(this));
+	rDeps = m_outputDeps;
 }
 
 void IlInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 {
-	rDeps.clear();
-
-	if (m_rDest.GetLocation() == Register::kAcc)
-		rDeps.push_back(new AccDependency(m_rDest, this));
-	else
-	{
-		assert(m_rDest.GetLocation() == Register::kRa || m_rDest.GetLocation() == Register::kRb);
-		assert(m_rDest.GetId() != 39);
-		rDeps.push_back(new RaRbDependency(m_rDest, this));
-	}
-
-	if (m_setFlags)
-		rDeps.push_back(new FlagsDependency(this));
+	rDeps = m_outputDeps;
 }
 
 void BranchInstruction::GetOutputDeps(DependencyBase::Dependencies &rDeps)
 {
-	rDeps.clear();
-
-	assert(m_rDestA.GetLocation() == Register::kRa || m_rDestA.GetLocation() == Register::kRb);
-	assert(m_rDestM.GetLocation() == Register::kRa || m_rDestM.GetLocation() == Register::kRb);
-
-	if (!m_rDestA.IsZero())
-		rDeps.push_back(new RaRbDependency(m_rDestA, this));
-	if (!m_rDestM.IsZero())
-		rDeps.push_back(new RaRbDependency(m_rDestM, this));
+	rDeps = m_outputDeps;
 }
 
 ReorderControl::ReorderControl(bool begin)
@@ -445,39 +495,12 @@ bool ReorderControl::IsEnd(void)
 
 void AluInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
-	rDeps.clear();
-
-	Register *pSourceA1 = m_rLeft.GetSourceRegA(true);
-	Register *pSourceA2 = m_rLeft.GetSourceRegB(true);
-
-	Register *pSourceM1 = m_rRight.GetSourceRegA(true);
-	Register *pSourceM2 = m_rRight.GetSourceRegB(true);
-
-	if (pSourceA1 && !pSourceA1->IsZero())
-		rDeps.push_back(new RegisterDependee(*pSourceA1));
-	if (pSourceA2 && !pSourceA2->IsZero())
-		rDeps.push_back(new RegisterDependee(*pSourceA2));
-	if (pSourceM1 && !pSourceM1->IsZero())
-		rDeps.push_back(new RegisterDependee(*pSourceM1));
-	if (pSourceM2 && !pSourceM2->IsZero())
-		rDeps.push_back(new RegisterDependee(*pSourceM2));
-
-	if (m_rLeft.GetUsesFlags() || m_rRight.GetUsesFlags())
-		rDeps.push_back(new FlagsDependee());
+	rDeps = m_inputDeps;
 }
 
 void BranchInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
 {
-	rDeps.clear();
-
-	if (m_pSource && !m_pSource->IsZero())
-	{
-		assert(m_pSource->GetLocation() == Register::kRa);
-		rDeps.push_back(new RegisterDependee(*m_pSource));
-	}
-
-	if (m_rCondition.GetEncodedValue() != kAlwaysBr)
-		rDeps.push_back(new FlagsDependee());
+	rDeps = m_inputDeps;
 }
 
 RegisterDependee::RegisterDependee(Register& rReg)
@@ -569,9 +592,29 @@ bool FlagsDependee::SatisfiesThis(DependencyBase& rDep)
 		return false;
 }
 
-bool DependencyWithStall::CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds)
+bool DependencyWithStall::CanRun(std::map<DependencyBase *, int> &rScoreboard, int &rNopsNeeds, int currentCycle)
 {
-	int count = 1;
+	DependencyBase *pBase = static_cast<DependencyBase *>(this);
+	auto it = rScoreboard.find(pBase);
+
+	//always zero
+	rNopsNeeds = 0;
+
+	//not found, let's do it
+	if (it == rScoreboard.end())
+		return false;
+	else
+	{
+		int writtenCycle = it->second;
+		int count = currentCycle - writtenCycle;
+
+		if ((m_hardDependency && count == m_minCycles) || !m_hardDependency)
+			return true;
+		else
+			return false;
+	}
+
+/*	int count = 1;
 	for (auto it = rRunInstructions.rbegin(); it != rRunInstructions.rend(); it++, count++)
 		if (*it == m_pProvider)
 		{
@@ -582,12 +625,38 @@ bool DependencyWithStall::CanRun(std::list<DependencyProvider *> &rRunInstructio
 				return true;
 		}
 
-	return false;
+	return false;*/
 }
 
-bool DependencyWithoutInterlock::CanRun(std::list<DependencyProvider *> &rRunInstructions, int &rNopsNeeds)
+bool DependencyWithoutInterlock::CanRun(std::map<DependencyBase *, int> &rScoreboard, int &rNopsNeeds, int currentCycle)
 {
-	int count = 1;
+	DependencyBase *pBase = static_cast<DependencyBase *>(this);
+	auto it = rScoreboard.find(pBase);
+
+	//not found, let's do it
+	if (it == rScoreboard.end())
+		return false;
+	else
+	{
+		int writtenCycle = it->second;
+		int count = currentCycle - writtenCycle;
+
+		if ((m_hardDependency && count == m_minCycles) || !m_hardDependency)
+		{
+			int diff = m_minCycles - count;
+
+			if (diff > 0)
+				rNopsNeeds = diff;
+			else
+				rNopsNeeds = 0;
+
+			return true;
+		}
+		else
+			return false;
+	}
+
+	/*int count = 1;
 	for (auto it = rRunInstructions.rbegin(); it != rRunInstructions.rend(); it++, count++)
 		if (*it == m_pProvider)
 		{
@@ -611,7 +680,7 @@ bool DependencyWithoutInterlock::CanRun(std::list<DependencyProvider *> &rRunIns
 			}
 		}
 
-	return false;
+	return false;*/
 }
 
 AddPipeInstruction& AddPipeInstruction::Nop(void)
