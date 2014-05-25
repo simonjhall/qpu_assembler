@@ -78,6 +78,11 @@ ra[0-9]+	{ yylval.p = new Register(Register::kRa, atoi(yytext + 2)); return RA_R
 rb[0-9]+	{ yylval.p = new Register(Register::kRb, atoi(yytext + 2)); return RB_REG; }
 acc[0-5]	{ yylval.p = new Register(Register::kAcc, atoi(yytext + 3)); return ACC_REG; }
 
+gp			{ yylval.p = new Register(Register::kRa, 28); return RA_REG; }
+fp			{ yylval.p = new Register(Register::kRa, 29); return RA_REG; }
+sp			{ yylval.p = new Register(Register::kRa, 30); return RA_REG; }
+lr			{ yylval.p = new Register(Register::kRa, 31); return RA_REG; }
+
 rda_unif	{ yylval.p = new Register(Register::kRa, 32); return UNIFRA; }
 rdb_unif	{ yylval.p = new Register(Register::kRb, 32); return UNIFRB; }
 
