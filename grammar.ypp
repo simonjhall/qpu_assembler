@@ -31,7 +31,7 @@ std::list<Base *> s_statements, s_statementsRescheduled;
 %token <p> MULNOP FMUL MUL24 V8MULD V8MIN V8MAX MULV8ADDS MULV8SUBS
 %token <p> NEVER AL ZS ZC NS NC CS CC
 %token <p> ALLZS ALLZC ANYZS ANYZC ALLNS ALLNC ANYNS ANYNC ALLCS ALLCC ANYCS ANYCC
-%token <p> NOP
+%token <p> NOP MOV
 %token <p> IL BR
 %token <p> SEM INC DEC
 %token <p> SETFLAGS ABSOLUTE
@@ -75,6 +75,34 @@ res: NOP
 					AluSignal::DefaultSignal());
 			s_statements.push_back($$);
 		}
+	| MOV setflags optinstcond adddestreg COMMA addrega
+	{
+		//need more versions with different args
+		Value *pFlags = dynamic_cast<Value *>$2;
+		InstructionCondition *pCc = dynamic_cast<InstructionCondition *>$3;
+		Register *pDest = dynamic_cast<Register *>$4;
+		Register *pSource = dynamic_cast<Register *>$6;
+		
+		assert(pFlags);
+		assert(pCc);
+		assert(pDest);
+		assert(pSource);
+		assert(pFlags->GetIntValue() == 1 || pFlags->GetIntValue() == 0);
+		
+		AddPipeInstruction *pLeft = new AddPipeInstruction(*new Opcode(kOr),
+					*pDest,
+					*pSource,
+					*pSource,
+					*pCc,
+					pFlags->GetIntValue() ? true : false);
+			
+			$$ = new AluInstruction(*pLeft,
+					BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+					AluSignal::DefaultSignal());
+			s_statements.push_back($$);
+		
+		delete pFlags;
+	}
 	| REORDER_BEGIN
 		{
 			s_statements.push_back(new ReorderControl(true));

@@ -119,6 +119,7 @@ vpm_ld_addr	{ yylval.p = new Register(Register::kRa, 50); return VPMWAADDR; }
 vpm_st_addr	{ yylval.p = new Register(Register::kRb, 50); return VPMWBADDR; }
 
 "nop"		{ return NOP; }
+"mov"		{ return MOV; }
 
 "sem"		{ return SEM; }
 "inc"		{ return INC; }
