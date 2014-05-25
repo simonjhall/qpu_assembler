@@ -126,6 +126,8 @@ vpm_st_addr	{ yylval.p = new Register(Register::kRb, 50); return VPMWBADDR; }
 "nop"		{ return NOP; }
 "mov"		{ return MOV; }
 
+"load_word"	{ return LOAD_WORD; }
+
 "sem"		{ return SEM; }
 "inc"		{ return INC; }
 "dec"		{ return DEC; }

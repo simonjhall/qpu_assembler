@@ -27,13 +27,26 @@ std::list<Label *> s_usedLabels;
 
 Instruction &s_rSpareNop = AluInstruction::Nop();
 
-std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::list<DependencyBase *> &rScoreboard)
+std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::list<DependencyBase *> &rScoreboard, bool &rReordering)
 {
 	bool first = true;
 	std::list<Base *>::iterator out = s_statements.end();
 
 	for (auto it = start; it != s_statements.end(); it++)
 	{
+		ReorderControl *pReorder = dynamic_cast<ReorderControl *>(*it);
+		if (pReorder)
+		{
+			bool newState = pReorder->IsBegin();
+
+			if (newState != rReordering)
+				printf("changing reordering from %s to %s\n", rReordering ? "ON" : "OFF", newState ? "ON" : "OFF");
+
+			rReordering = newState;
+			out = ++it;
+			break;
+		}
+
 		DependencyConsumer *pConsumer = dynamic_cast<DependencyConsumer *>(*it);
 		DependencyProvider *pProvider = dynamic_cast<DependencyProvider *>(*it);
 
@@ -84,7 +97,7 @@ std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::li
 			}
 		}
 
-		if (dynamic_cast<BranchInstruction *>(*it))
+		if (dynamic_cast<BranchInstruction *>(*it) || !rReordering)
 		{
 			out = ++it;
 			break;
@@ -142,6 +155,8 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 		assert((isBranch && !branchInserted)
 				|| !isBranch);
 
+		assert(!isBranch || (isBranch && delaySlotsToFill == 3));
+
 		//no point in running more if we have more instructions to do that branch delay slots free
 		if (isBranch && ((int)instructionsToRun.size() - 1 > delaySlotsToFill))
 			continue;
@@ -170,6 +185,12 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 
 		std::list<DependencyProvider *> newRunInstructions = runInstructions;
 
+		int inserted = nopsNeeded + 1;			//x nops plus the actual instruction
+
+		//no more room to run
+		if (branchInserted && (delaySlotsToFill - inserted < 0))
+			return;
+
 		//we can run, and we know how many nops need to be inserted
 		for (auto count = 0; count < nopsNeeded; count++)
 			newRunInstructions.push_back(&s_rSpareNop);
@@ -195,12 +216,19 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 			newScoreboard[*d] = currentCycle;
 		}
 
-
 		if (instructionsToRun.size() == 1)		//we already have processed the last one
 		{
 			//check the scoreboard matches the final scoreboard
 			//and count how many nops are needed to make the scoreboard 'valid'
+			//plus how many delay slots are still to fill
 			int nops = delaySlotsToFill;
+
+			//adjust delay slot to account for ones already inserted
+			if (nops)
+				nops -= inserted;
+			if (nops < 0)
+				nops = 0;
+
 			for (auto final = rFinalScoreboard.begin(); final != rFinalScoreboard.end(); final++)
 			{
 				bool found = false;
@@ -221,7 +249,7 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 					return;			//scoreboard does not match what is expected
 			}
 
-			//add delay slot nops
+			//add all nops
 			for (auto count = 0; count < nops; count++)
 				newRunInstructions.push_back(&s_rSpareNop);
 
@@ -258,11 +286,19 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 			if (rFoundSchedule && newInstructionsToRun.size() >= rBestSchedule.size())
 				return;
 
+			int newDelaySlotsToFill;
+			if (isBranch)
+				newDelaySlotsToFill = delaySlotsToFill;		//no change, branch is in - three to go
+			else if (branchInserted)
+				newDelaySlotsToFill = delaySlotsToFill - inserted;		//decrement by instructions inserted
+			else
+				newDelaySlotsToFill = delaySlotsToFill;		//branch not encountered yet
+
 			Schedule(newRunInstructions, newInstructionsToRun,
 					newScoreboard, rFinalScoreboard,
 					rBestSchedule, rFoundSchedule,
 					branchInserted ? branchInserted : isBranch,
-					(branchInserted || isBranch) ? delaySlotsToFill - 1 : delaySlotsToFill,
+					newDelaySlotsToFill,
 					currentCycle + 1);
 		}
 	}
@@ -289,11 +325,12 @@ int main(int argc, const char *argv[])
 		(*it)->DebugPrint(0);
 
 	auto start = s_statements.begin();
+	bool reordering = true;
 
 	do
 	{
 		std::list<DependencyBase *> finalScoreboard;
-		auto next_start = BuildDeps(start, finalScoreboard);
+		auto next_start = BuildDeps(start, finalScoreboard, reordering);
 		EmitNonInstructions(start, next_start);
 
 		std::list<DependencyProvider *> runInstructions;

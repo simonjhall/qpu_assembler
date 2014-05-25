@@ -31,7 +31,6 @@ std::list<Base *> s_statements, s_statementsRescheduled;
 %token <p> MULNOP FMUL MUL24 V8MULD V8MIN V8MAX MULV8ADDS MULV8SUBS
 %token <p> NEVER AL ZS ZC NS NC CS CC
 %token <p> ALLZS ALLZC ANYZS ANYZC ALLNS ALLNC ANYNS ANYNC ALLCS ALLCC ANYCS ANYCC
-%token <p> NOP MOV
 %token <p> IL BR
 %token <p> SEM INC DEC
 %token <p> SETFLAGS ABSOLUTE
@@ -39,6 +38,9 @@ std::list<Base *> s_statements, s_statementsRescheduled;
 %token <p> RA_REG RB_REG ACC_REG
 %token <p> LABEL_DEF LABEL_TARGET
 %token <p> WORD SHORT BYTE
+
+%token <p> NOP MOV
+%token <p> LOAD_WORD
 
 %token <p> UNIFRA UNIFRB
 %token <p> NOPRA NOPRB NOPWA NOPWB
@@ -103,6 +105,104 @@ res: NOP
 		
 		delete pFlags;
 	}
+	| LOAD_WORD adddestreg COMMA addrega COMMA NUM
+		{
+			Register *pDest = dynamic_cast<Register *>$2;
+			Register *pSource = dynamic_cast<Register *>$4;
+			Value *pImm = dynamic_cast<Value *>$6;
+			
+			assert(pDest);
+			assert(pSource);
+			assert(pImm);
+			
+			//create a barrier
+			s_statements.push_back(
+					new ReorderControl(false)
+			);
+			s_statements.push_back(
+					new ReorderControl(true)
+			);
+			
+			//read int vpm
+			//program vpm_vcd_rd_setup
+			
+			//configure dma read
+			{
+				s_statements.push_back(
+					new IlInstruction(*new Register(Register::kRa, 49),			//write to vpm_vcd_rd_setup
+						*new Value((1 << 31)			//vdr dma basic setup
+								| (0 << 28)				//width=32-bit
+								| (1 << 24)				//row-to-row pitch in memory is 8*2^xxx
+								| (16 << 20)			//16 elements to a row
+								| (1 << 16)				//one row
+								| (0 << 12)				//row-to-row pitch in vpm (only loading one row anyway)
+								| (0 << 11)				//horizontal
+								| (0 << 0)),			//X=0, Y=0,
+						*new InstructionCondition(kAlways),
+						false)
+				);
+			}
+		
+			//write load address and trigger load
+			{
+				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
+						*new Register(Register::kRa, 50), *pSource, *new SmallImm(*pImm),				//vpm_ld_addr = pSource + imm
+						*new InstructionCondition(kAlways), false);
+				s_statements.push_back(
+						new AluInstruction(rLeft,
+								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+								AluSignal::DefaultSignal())
+				);
+			}
+		
+			//wait for the dma to complete
+			{
+				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kOr),
+						*new Register(Register::kRa, 39), *new Register(Register::kRa, 50), *new Register(Register::kRa, 50), //wra_nop = vpm_ld_wait | vpm_ld_wait
+						*new InstructionCondition(kAlways), false);
+				s_statements.push_back(
+						new AluInstruction(rLeft,
+								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+								AluSignal::DefaultSignal())
+				);
+			}
+			
+			//create a barrier
+			s_statements.push_back(
+					new ReorderControl(false)
+			);
+			s_statements.push_back(
+					new ReorderControl(true)
+			);
+		
+			//trigger the load from vpm to qpu
+			{
+				s_statements.push_back(
+					new IlInstruction(*new Register(Register::kRa, 49),			//write to vpm_vcd_rd_setup
+						*new Value((0 << 31)			//vpm generic block read setup
+								| (1 << 20)				//one vector to read
+								| (0 << 12)				//stride, only reading one vector anyway
+								| (1 << 11)				//horizontal
+								| (2 << 8)				//32-bit
+								| (0 << 0)),			//X=0, Y=0
+						*new InstructionCondition(kAlways),
+						false)
+				);
+			}
+		
+			//move from vpm read dat to dest
+			//wait for the dma to complete
+			{
+				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kOr),
+						*pDest, *new Register(Register::kRa, 48), *new Register(Register::kRa, 48), //dest = rda_vpm_dat | rda_vpm_dat
+						*new InstructionCondition(kAlways), false);
+				s_statements.push_back(
+						new AluInstruction(rLeft,
+								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+								AluSignal::DefaultSignal())
+				);
+			}			
+		}
 	| REORDER_BEGIN
 		{
 			s_statements.push_back(new ReorderControl(true));

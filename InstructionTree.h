@@ -278,7 +278,9 @@ public:
 	virtual void DebugPrint(int depth);
 
 	Register &GetReg();
+
 protected:
+	static int CyclesStalled(Register &rReg);
 	Register &m_rReg;
 };
 

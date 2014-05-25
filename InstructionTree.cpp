@@ -159,6 +159,9 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 		{
 			assert(pDestA->GetLocation() == Register::kRa || pDestA->GetLocation() == Register::kRb);
 			m_outputDeps.push_back(new RaRbDependency(*pDestA, this));
+
+			if (pDestA->GetId() == 50 && pDestA->GetLocation() == Register::kRa)		//vpm_ld_addr, so we are dependent on dma set-up
+				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRa, 49)));
 		}
 	}
 
@@ -170,6 +173,9 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 		{
 			assert(pDestM->GetLocation() == Register::kRa || pDestM->GetLocation() == Register::kRb);
 			m_outputDeps.push_back(new RaRbDependency(*pDestM, this));
+
+			if (pDestM->GetId() == 50 && pDestM->GetLocation() == Register::kRa)		//vpm_ld_addr, so we are dependent on dma set-up
+				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRa, 49)));
 		}
 	}
 
@@ -294,8 +300,20 @@ IlInstruction::IlInstruction(Register& rDest, Value& rImmediate,
 	else
 	{
 		assert(m_rDest.GetLocation() == Register::kRa || m_rDest.GetLocation() == Register::kRb);
-		assert(m_rDest.GetId() != 39);
+		assert(m_rDest.GetId() != 39);	//no nop writes
 		m_outputDeps.push_back(new RaRbDependency(m_rDest, this));
+
+		if (m_rDest.GetId() == 49 && m_rDest.GetLocation() == Register::kRa)					//present vpm_read as well
+		{
+			m_outputDeps.push_back(new RaRbDependency(*new Register(Register::kRa, 48), this));
+			m_outputDeps.push_back(new RaRbDependency(*new Register(Register::kRb, 48), this));
+		}
+
+		/*if (m_rDest.GetId() == 49 && m_rDest.GetLocation() == Register::kRa)		//serialise writes to load set-up
+			m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRa, 49)));
+
+		if (m_rDest.GetId() == 50 && m_rDest.GetLocation() == Register::kRa)		//if writing vpm_ld_addr we are dependent on dma set-up
+			m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRa, 49)));*/
 	}
 
 	if (m_setFlags)
@@ -427,7 +445,7 @@ Label::~Label()
 }
 
 RaRbDependency::RaRbDependency(Register &rReg, DependencyProvider *pProvider)
-: DependencyWithoutInterlock(2, false, *new RegisterDependee(rReg), pProvider),
+: DependencyWithoutInterlock(CyclesStalled(rReg), false, *new RegisterDependee(rReg), pProvider),
   m_rReg(rReg)
 {
 	assert(rReg.GetLocation() != Register::kAcc);
@@ -706,4 +724,26 @@ MulPipeInstruction& MulPipeInstruction::Nop(void)
 Instruction& AluInstruction::Nop(void)
 {
 	return *new AluInstruction(AddPipeInstruction::Nop(), MulPipeInstruction::Nop(), *new AluSignal(kNoSignal));
+}
+
+int RaRbDependency::CyclesStalled(Register& rReg)
+{
+	assert(rReg.GetLocation() != Register::kAcc);
+
+	int id = rReg.GetId();
+
+	if (id >= 0 && id < 32)
+		return 2;
+
+	if (id == 48)			//vpm_read takes at least three cycles
+		return 3;
+
+	if (id == 49)			//programming vpmvcd_**_setup takes one cycle (ready next cycle)
+		return 1;
+
+	if (id == 50)			//programming vpm_**_addr takes one cycle
+		return 1;
+
+	assert(0);
+	return 0;
 }
