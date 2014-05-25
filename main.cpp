@@ -29,12 +29,21 @@ Instruction &s_rSpareNop = AluInstruction::Nop();
 
 std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::list<DependencyBase *> &rScoreboard)
 {
+	bool first = true;
 	std::list<Base *>::iterator out = s_statements.end();
 
 	for (auto it = start; it != s_statements.end(); it++)
 	{
 		DependencyConsumer *pConsumer = dynamic_cast<DependencyConsumer *>(*it);
 		DependencyProvider *pProvider = dynamic_cast<DependencyProvider *>(*it);
+
+		if (dynamic_cast<Label *>(*it) && !first)
+		{
+			out = it;
+			break;
+		}
+
+		first = false;
 
 		if (pConsumer)
 		{
@@ -134,7 +143,7 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 				|| !isBranch);
 
 		//no point in running more if we have more instructions to do that branch delay slots free
-		if (isBranch && (instructionsToRun.size() - 1 > 3))
+		if (isBranch && ((int)instructionsToRun.size() - 1 > delaySlotsToFill))
 			continue;
 
 		//check if this one can run
@@ -190,18 +199,22 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 		if (instructionsToRun.size() == 1)		//we already have processed the last one
 		{
 			//check the scoreboard matches the final scoreboard
+			//and count how many nops are needed to make the scoreboard 'valid'
+			int nops = delaySlotsToFill;
 			for (auto final = rFinalScoreboard.begin(); final != rFinalScoreboard.end(); final++)
 			{
 				bool found = false;
 				for (auto result = newScoreboard.begin(); result != newScoreboard.end(); result++)
 				{
+					int nopsNeeded;
+					if (!result->first->CanRun(newScoreboard, nopsNeeded, currentCycle + 1))
+						assert(!"not found in scoreboard\n");
+
+					if (nopsNeeded > nops)
+						nops = nopsNeeded;
+
 					if (*final == result->first)
-					{
 						found = true;
-						break;
-					}
-//					if ((*final)->ProvidesSameThing(*result->first))
-//						printf("same dep provided by a different provider\n");
 				}
 
 				if (!found)
@@ -209,7 +222,7 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 			}
 
 			//add delay slot nops
-			for (auto count = 0; count < delaySlotsToFill; count++)
+			for (auto count = 0; count < nops; count++)
 				newRunInstructions.push_back(&s_rSpareNop);
 
 			found_solutions++;
@@ -298,12 +311,17 @@ int main(int argc, const char *argv[])
 
 		if (instructionsToRun.size() != 0)
 		{
+			bool lastIsBranch = dynamic_cast<BranchInstruction *>(instructionsToRun.back()) ? true : false;
+
+			//debug
 			schedules_run = 0;
+			found_solutions = 0;
+
 			std::map<DependencyBase *, int> scoreboard;
 			Schedule(runInstructions, instructionsToRun,
 					scoreboard, finalScoreboard,
 					bestSchedule, foundSchedule,
-					false, 3,
+					false, lastIsBranch ? 3 : 0,
 					0);
 
 			assert(foundSchedule);
@@ -392,8 +410,12 @@ int main(int argc, const char *argv[])
 			switch (sizeInBytes)
 			{
 			case 0:			//labels
-				printf("\n");
+			{
+				Label *l = dynamic_cast<Label *>(*it);
+				assert(l);
+				printf("/*%s:*/\n", l->GetName());
 				break;
+			}
 			case 1:
 				printf("0x%02llx,\n", output & 0xff);
 				break;
