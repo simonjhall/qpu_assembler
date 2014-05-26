@@ -25,8 +25,8 @@ union
 "\.type".*$	{}
 "\.size".*$	{}
 
-"\.set reorder".*$	{ return REORDER_BEGIN; }
-"\.set noreorder".*$	{ return REORDER_END; }
+"\.set"[ \t]+"reorder".*$	{ return REORDER_BEGIN; }
+"\.set"[ \t]+"noreorder".*$	{ return REORDER_END; }
 
 "\.align".*$	{}
 "/*".*"*/" { /* not a very good way of getting rid of comments */ }
@@ -58,8 +58,8 @@ union
 [ \t\n]+ { }
 "s"			{ return SETFLAGS; }
 "a"			{ return ABSOLUTE; }
-^[A-Z$][A-Z0-9_]*:	{ yylval.p = new Label(yytext, true); return LABEL_DEF; }
-\#[A-Z$][A-Z0-9_]*\#	{ yylval.p = new Label(yytext, false); return LABEL_TARGET; }
+^[a-zA-Z$][a-zA-Z0-9_]*:	{ yylval.p = new Label(yytext, true); return LABEL_DEF; }
+\#[a-zA-Z$][a-zA-Z0-9_]*\#	{ yylval.p = new Label(yytext, false); return LABEL_TARGET; }
 .        { printf("Unrecognized token! \"%s\"\n", yytext); exit(1); }
 
 "never"		{ yylval.p = new InstructionCondition(kNever); return NEVER; }
