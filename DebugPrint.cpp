@@ -309,6 +309,9 @@ void BasePipeInstruction::DebugPrintAsm(void)
 
 void AluInstruction::DebugPrintAsm(void)
 {
+	if (m_rLeft.IsNopOrNever() && m_rRight.IsNopOrNever())
+		printf("nop; ");
+
 	if (!m_rLeft.IsNopOrNever())
 	{
 		m_rLeft.DebugPrintAsm();
@@ -359,6 +362,10 @@ void Register::DebugPrintAsm(bool reading)
 		}
 		else if (GetLocation() == kRb)
 		{
+			switch (GetId())
+			{
+				case 50: printf("vpm_st_wait"); return;
+			}
 		}
 	}
 	else	//writing
@@ -378,6 +385,8 @@ void Register::DebugPrintAsm(bool reading)
 			switch (GetId())
 			{
 				case 39: printf("wrb_nop"); return;
+				case 49: printf("vpmvcd_wr_setup"); return;
+				case 50: printf("vpm_st_addr"); return;
 			}
 		}
 	}

@@ -3,6 +3,7 @@
 #include "grammar.tab.hpp"
 #include <stdio.h>
 #include <string>
+#include <assert.h>
 #include "shared.h"
 using namespace std;
 
@@ -21,7 +22,20 @@ union
 "//".*$		{}
 "\.file".*$	{}
 "\.text".*$	{}
-"\.globl".*$	{}
+"\.globl".*$	{
+					char *p = yytext;
+					//find globl
+					p = strstr(yytext, ".globl");
+					assert(p);
+					//move to whitespace
+					p += 6;
+					assert(*p == ' ' || *p == '\t');
+					do
+					{
+						p++;
+					} while (*p == ' ' || *p == '\t');
+					yylval.p = new Label(p, true); return LABEL_DEF;
+				}
 "\.type".*$	{}
 "\.size".*$	{}
 
@@ -127,6 +141,7 @@ vpm_st_addr	{ yylval.p = new Register(Register::kRb, 50); return VPMWBADDR; }
 "mov"		{ return MOV; }
 
 "load_word"	{ return LOAD_WORD; }
+"store_word" { return STORE_WORD; }
 
 "sem"		{ return SEM; }
 "inc"		{ return INC; }

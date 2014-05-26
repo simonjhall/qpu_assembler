@@ -158,10 +158,17 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 		else
 		{
 			assert(pDestA->GetLocation() == Register::kRa || pDestA->GetLocation() == Register::kRb);
-			m_outputDeps.push_back(new RaRbDependency(*pDestA, this));
 
 			if (pDestA->GetId() == 50 && pDestA->GetLocation() == Register::kRa)		//vpm_ld_addr, so we are dependent on dma set-up
 				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRa, 49)));
+
+			if (pDestA->GetId() == 50 && pDestA->GetLocation() == Register::kRb)		//vpm_st_addr, so we are dependent on dma set-up
+				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRb, 49)));
+
+			if (pDestA->GetId() == 48 && pDestA->GetLocation() == Register::kRa)		//wra_dat, so dep on vpm set-up
+				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRb, 49)));
+			else
+				m_outputDeps.push_back(new RaRbDependency(*pDestA, this));				//no dep provided for wra_dat
 		}
 	}
 
@@ -172,10 +179,17 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 		else
 		{
 			assert(pDestM->GetLocation() == Register::kRa || pDestM->GetLocation() == Register::kRb);
-			m_outputDeps.push_back(new RaRbDependency(*pDestM, this));
 
 			if (pDestM->GetId() == 50 && pDestM->GetLocation() == Register::kRa)		//vpm_ld_addr, so we are dependent on dma set-up
 				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRa, 49)));
+
+			if (pDestA->GetId() == 50 && pDestA->GetLocation() == Register::kRb)		//vpm_st_addr, so we are dependent on dma set-up
+				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRb, 49)));
+
+			if (pDestA->GetId() == 48 && pDestA->GetLocation() == Register::kRa)		//wra_dat, so dep on vpm set-up
+				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRb, 49)));
+			else
+				m_outputDeps.push_back(new RaRbDependency(*pDestM, this));				//no dep provided for wra_dat
 		}
 	}
 
@@ -631,19 +645,6 @@ bool DependencyWithStall::CanRun(std::map<DependencyBase *, int> &rScoreboard, i
 		else
 			return false;
 	}
-
-/*	int count = 1;
-	for (auto it = rRunInstructions.rbegin(); it != rRunInstructions.rend(); it++, count++)
-		if (*it == m_pProvider)
-		{
-			rNopsNeeds = 0;
-			if ((m_hardDependency && count == m_minCycles) || !m_hardDependency)
-				return false;
-			else
-				return true;
-		}
-
-	return false;*/
 }
 
 bool DependencyWithoutInterlock::CanRun(std::map<DependencyBase *, int> &rScoreboard, int &rNopsNeeds, int currentCycle)
@@ -673,32 +674,6 @@ bool DependencyWithoutInterlock::CanRun(std::map<DependencyBase *, int> &rScoreb
 		else
 			return false;
 	}
-
-	/*int count = 1;
-	for (auto it = rRunInstructions.rbegin(); it != rRunInstructions.rend(); it++, count++)
-		if (*it == m_pProvider)
-		{
-			if (m_hardDependency)
-			{
-				if (m_minCycles == count)
-					return true;
-				else
-					return false;
-			}
-			else
-			{
-				int diff = m_minCycles - count;
-
-				if (diff > 0)
-					rNopsNeeds = diff;
-				else
-					rNopsNeeds = 0;
-
-				return true;
-			}
-		}
-
-	return false;*/
 }
 
 AddPipeInstruction& AddPipeInstruction::Nop(void)
