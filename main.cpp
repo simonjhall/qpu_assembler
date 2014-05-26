@@ -252,6 +252,9 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 					return;			//scoreboard does not match what is expected
 			}
 
+			if (branchInserted && (delaySlotsToFill - inserted - nops) != 0)
+				return;					//not enough spare cycles
+
 			//add all nops
 			for (auto count = 0; count < nops; count++)
 				newRunInstructions.push_back(&s_rSpareNop);
