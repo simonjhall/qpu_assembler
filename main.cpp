@@ -455,24 +455,28 @@ int main(int argc, const char *argv[])
 			{
 				Label *l = dynamic_cast<Label *>(*it);
 				assert(l);
-				printf("/*%s:*/\n", l->GetName());
+				printf("/*%s:*/", l->GetName());
 				break;
 			}
 			case 1:
-				printf("0x%02llx,\n", output & 0xff);
+				printf("0x%02llx,", output & 0xff);
 				break;
 			case 2:
-				printf("0x%04llx,\n", output & 0xffff);
+				printf("0x%04llx,", output & 0xffff);
 				break;
 			case 4:
-				printf("0x%08llx,\n", output & 0xffffffff);
+				printf("0x%08llx,", output & 0xffffffff);
 				break;
 			case 8:
-				printf("0x%08llx, 0x%08llx,\n", output & 0xffffffff, output >> 32);
+				printf("0x%08llx, 0x%08llx,", output & 0xffffffff, output >> 32);
 				break;
 			default:
 				assert(0);
 			}
+
+			printf("\t/* ");
+			p->DebugPrintAsm();
+			printf(" */\n");
 
 			address += sizeInBytes;
 		}

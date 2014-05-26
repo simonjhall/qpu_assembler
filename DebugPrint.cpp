@@ -237,3 +237,152 @@ void FlagsDependee::DebugPrint(int depth) const
 
 	printf("FlagsDependee\n");
 }
+
+void Assemblable::DebugPrintAsm(void)
+{
+}
+
+void IlInstruction::DebugPrintAsm(void)
+{
+	printf("il");
+	m_rCondition.DebugPrintAsm();
+
+	printf(" ");
+	m_rDest.DebugPrintAsm(false);
+	printf(", ");
+
+	printf("%08x ( %d )",
+			m_rImmediate.GetIntValue(), m_rImmediate.GetIntValue());
+}
+
+void BranchInstruction::DebugPrintAsm(void)
+{
+	printf("br%s", m_absolute ? "a" : "");
+	m_rCondition.DebugPrintAsm();
+
+	printf(" ");
+	m_rDestA.DebugPrintAsm(false);
+	printf(", ");
+	m_rDestM.DebugPrintAsm(false);
+	printf(", ");
+
+	if (m_pSource)
+	{
+		m_pSource->DebugPrintAsm(true);
+		printf(", ");
+	}
+
+	printf("%08x ( %d )",
+			m_rImm.GetIntValue(), m_rImm.GetIntValue());
+}
+
+void InstructionCondition::DebugPrintAsm(void)
+{
+	printf("%s", GetConditionCodeName(m_condition));
+}
+
+void AluSignal::DebugPrintAsm(void)
+{
+	if (m_signal != kNoSignal)
+		printf("%s", GetSignalName(m_signal));
+}
+
+void BasePipeInstruction::DebugPrintAsm(void)
+{
+	if (IsNopOrNever())
+		return;
+
+	m_rOpcode.DebugPrintAsm();
+	if (m_setFlags)
+		printf("s");
+	m_rCondition.DebugPrintAsm();
+
+	printf(" ");
+	m_rDest.DebugPrintAsm(false);
+	printf(", ");
+
+	m_rSource1.DebugPrintAsm(true);
+	printf(", ");
+
+	m_rSource2.DebugPrintAsm();
+}
+
+void AluInstruction::DebugPrintAsm(void)
+{
+	if (!m_rLeft.IsNopOrNever())
+	{
+		m_rLeft.DebugPrintAsm();
+		printf("; ");
+	}
+	if (!m_rRight.IsNopOrNever())
+	{
+		m_rRight.DebugPrintAsm();
+		printf("; ");
+	}
+	m_rSignal.DebugPrintAsm();
+}
+
+void BrCondition::DebugPrintAsm(void)
+{
+	printf("%s", GetBranchConditionName(m_condition));
+}
+
+void Opcode::DebugPrintAsm(void)
+{
+	if (m_leftType)
+		printf("%s", GetAddOpName(m_leftOp));
+	else
+		printf("%s", GetMulOpName(m_rightOp));
+}
+
+void SmallImm::DebugPrintAsm(void)
+{
+	printf("%08x (%d)", m_rValue.GetIntValue(), m_rValue.GetIntValue());
+}
+
+void Register::DebugPrintAsm(void)
+{
+	DebugPrintAsm(true);
+}
+
+void Register::DebugPrintAsm(bool reading)
+{
+	if (reading)
+	{
+		if (GetLocation() == kRa)
+		{
+			switch (GetId())
+			{
+				case 48: printf("rda_vpm_dat"); return;
+				case 50: printf("vpm_ld_wait"); return;
+			}
+		}
+		else if (GetLocation() == kRb)
+		{
+		}
+	}
+	else	//writing
+	{
+		if (GetLocation() == kRa)
+		{
+			switch (GetId())
+			{
+				case 39: printf("wra_nop"); return;
+				case 48: printf("wra_vpm_dat"); return;
+				case 49: printf("vpmvcd_rd_setup"); return;
+				case 50: printf("vpm_ld_addr"); return;
+			}
+		}
+		else if (GetLocation() == kRb)
+		{
+			switch (GetId())
+			{
+				case 39: printf("wrb_nop"); return;
+			}
+		}
+	}
+
+	printf("%s%d",
+			GetLocation() == kRa ? "ra" : (GetLocation() == kRb ? "rb" : "acc"),
+			GetId());
+}

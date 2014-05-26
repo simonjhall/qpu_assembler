@@ -75,6 +75,8 @@ public:
 	virtual void Assemble(Fields &rFields);
 	virtual unsigned int GetEncodedValue(void);
 
+	virtual void DebugPrintAsm(void);
+
 	static bool CombineFields(Fields &rFields, unsigned int &rSizeInBytes, uint64_t &rOutput);
 };
 
@@ -86,6 +88,8 @@ public:
 
 	virtual void DebugPrint(int depth);
 	virtual unsigned int GetEncodedValue(void);
+
+	virtual void DebugPrintAsm(void);
 
 private:
 	ConditionCode m_condition;
@@ -99,6 +103,8 @@ public:
 
 	virtual void DebugPrint(int depth);
 	virtual unsigned int GetEncodedValue(void);
+
+	virtual void DebugPrintAsm(void);
 
 private:
 	BranchCondition m_condition;
@@ -135,6 +141,8 @@ public:
 	SecondSource();
 	virtual ~SecondSource();
 
+	virtual void DebugPrintAsm(void) = 0;
+
 private:
 };
 
@@ -150,6 +158,9 @@ public:
 	Register(Location, int);
 	virtual ~Register();
 	virtual void DebugPrint(int depth);
+
+	virtual void DebugPrintAsm(void);
+	void DebugPrintAsm(bool reading);
 
 	inline Location GetLocation(void) { return m_loc; }
 	inline int GetId(void) { return m_id; }
@@ -366,6 +377,7 @@ public:
 	virtual ~SmallImm();
 
 	virtual void DebugPrint(int depth);
+	virtual void DebugPrintAsm(void);
 	virtual unsigned int GetEncodedValue(void);
 
 private:
@@ -381,6 +393,7 @@ public:
 	virtual ~Opcode();
 
 	virtual void DebugPrint(int depth);
+	virtual void DebugPrintAsm(void);
 	virtual void Assemble(Fields &rFields);
 	virtual unsigned int GetEncodedValue(void);
 
@@ -402,6 +415,8 @@ public:
 	virtual ~BasePipeInstruction();
 
 	virtual void DebugPrint(int depth);
+	virtual void DebugPrintAsm(void);
+
 	inline bool IsNopOrNever(void)
 	{
 		//todo do a nicer job here
@@ -497,6 +512,7 @@ public:
 	virtual ~AluSignal();
 
 	virtual void DebugPrint(int depth);
+	virtual void DebugPrintAsm(void);
 	virtual unsigned int GetEncodedValue(void);
 
 	static AluSignal &DefaultSignal(void);
@@ -514,6 +530,7 @@ public:
 	virtual void Assemble(Fields &rFields);
 
 	virtual void DebugPrint(int depth);
+	virtual void DebugPrintAsm(void);
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
@@ -534,6 +551,8 @@ public:
 
 	virtual void DebugPrint(int depth);
 	virtual void Assemble(Fields &rFields);
+
+	virtual void DebugPrintAsm(void);
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
 
@@ -572,6 +591,7 @@ public:
 
 	virtual void DebugPrint(int depth);
 	virtual void Assemble(Fields &rFields);
+	virtual void DebugPrintAsm(void);
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
 	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
