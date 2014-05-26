@@ -195,6 +195,7 @@ class Dependee
 public:
 	virtual bool SatisfiesThis(DependencyBase &rDep) = 0;
 	virtual void DebugPrint(int depth) const = 0;
+	virtual DependencyBase &CreateDummySatisficer(void) = 0;
 
 	typedef std::list<Dependee *> Dependencies;
 protected:
@@ -209,6 +210,7 @@ public:
 
 	virtual bool SatisfiesThis(DependencyBase &rDep);
 	virtual void DebugPrint(int depth) const;
+	virtual DependencyBase &CreateDummySatisficer(void);
 
 protected:
 	Register &m_rReg;
@@ -222,6 +224,7 @@ public:
 
 	virtual bool SatisfiesThis(DependencyBase &rDep);
 	virtual void DebugPrint(int depth) const;
+	virtual DependencyBase &CreateDummySatisficer(void);
 };
 
 class DependencyProvider;
@@ -335,6 +338,17 @@ public:
 	inline virtual ~DependencyProvider() {};
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &) = 0;
+};
+
+class BbDepProvider : public DependencyProvider
+{
+public:
+	inline virtual ~BbDepProvider() {};
+
+	inline virtual void GetOutputDeps(DependencyBase::Dependencies &rDeps)
+	{
+		rDeps.clear();
+	}
 };
 
 class DependencyConsumer

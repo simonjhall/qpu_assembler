@@ -201,12 +201,12 @@ res: NOP
 			}
 			
 			//create a barrier (to prevent something getting written into pDest)
-			s_statements.push_back(
+		/*	s_statements.push_back(
 					new ReorderControl(false)
 			);
 			s_statements.push_back(
 					new ReorderControl(true)
-			);
+			);*/
 		}
 	| STORE_WORD addrega COMMA addrega COMMA NUM
 		{
@@ -302,12 +302,12 @@ res: NOP
 			}
 			
 			//create a barrier (currently to prevent other registers stealing pSource)
-			s_statements.push_back(
+			/*s_statements.push_back(
 					new ReorderControl(false)
 			);
 			s_statements.push_back(
 					new ReorderControl(true)
-			);
+			);*/
 		}
 	| REORDER_BEGIN
 		{

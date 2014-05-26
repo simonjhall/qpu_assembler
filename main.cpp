@@ -27,7 +27,7 @@ std::list<Label *> s_usedLabels;
 
 Instruction &s_rSpareNop = AluInstruction::Nop();
 
-std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::list<DependencyBase *> &rScoreboard, bool &rReordering)
+std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::list<DependencyBase *> &rScoreboard, bool &rReordering, std::list<DependencyBase *> &rDummies)
 {
 	bool first = true;
 	std::list<Base *>::iterator out = s_statements.end();
@@ -65,14 +65,25 @@ std::list<Base *>::iterator BuildDeps(std::list<Base *>::iterator start, std::li
 
 			for (auto d = deps.begin(); d != deps.end(); d++)
 			{
+				bool found = false;
 				for (auto s = rScoreboard.begin(); s != rScoreboard.end(); s++)
 				{
 					DependencyBase *p = *s;
 					if ((*d)->SatisfiesThis(*p))
 					{
+						found = true;
 						pConsumer->AddResolvedInputDep(*p);
 						break;
 					}
+				}
+
+				if (!found)
+				{
+					DependencyBase *pDummy = &(*d)->CreateDummySatisficer();
+					pConsumer->AddResolvedInputDep(*pDummy);
+
+					rScoreboard.push_back(pDummy);
+					rDummies.push_back(pDummy);
 				}
 			}
 		}
@@ -337,8 +348,8 @@ int main(int argc, const char *argv[])
 
 	do
 	{
-		std::list<DependencyBase *> finalScoreboard;
-		auto next_start = BuildDeps(start, finalScoreboard, reordering);
+		std::list<DependencyBase *> finalScoreboard, dummies;
+		auto next_start = BuildDeps(start, finalScoreboard, reordering, dummies);
 		EmitNonInstructions(start, next_start);
 
 		std::list<DependencyProvider *> runInstructions;
@@ -363,6 +374,10 @@ int main(int argc, const char *argv[])
 			found_solutions = 0;
 
 			std::map<DependencyBase *, int> scoreboard;
+			//copy in the dummies to pre-load the scoreboard on entry to the bb
+			for (auto it = dummies.begin(); it != dummies.end(); it++)
+				scoreboard[*it] = -3;
+
 			Schedule(runInstructions, instructionsToRun,
 					scoreboard, finalScoreboard,
 					bestSchedule, foundSchedule,

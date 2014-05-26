@@ -722,3 +722,16 @@ int RaRbDependency::CyclesStalled(Register& rReg)
 	assert(0);
 	return 0;
 }
+
+DependencyBase& RegisterDependee::CreateDummySatisficer(void)
+{
+	if (m_rReg.GetLocation() == Register::kAcc)
+		return *new AccDependency(m_rReg, new BbDepProvider());
+	else
+		return *new RaRbDependency(m_rReg, new BbDepProvider());
+}
+
+DependencyBase& FlagsDependee::CreateDummySatisficer(void)
+{
+	return *new FlagsDependency(new BbDepProvider());
+}
