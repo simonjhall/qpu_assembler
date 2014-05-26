@@ -213,7 +213,7 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 					newScoreboard.erase(s);
 					break;
 				}
-			newScoreboard[*d] = currentCycle;
+			newScoreboard[*d] = currentCycle + nopsNeeded;
 		}
 
 		if (instructionsToRun.size() == 1)		//we already have processed the last one
@@ -224,22 +224,25 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 			int nops = delaySlotsToFill;
 
 			//adjust delay slot to account for ones already inserted
-			if (nops)
-				nops -= inserted;
-			if (nops < 0)
-				nops = 0;
+			if (branchInserted)
+			{
+				if (nops)
+					nops -= inserted;
+				if (nops < 0)
+					nops = 0;
+			}
 
 			for (auto final = rFinalScoreboard.begin(); final != rFinalScoreboard.end(); final++)
 			{
 				bool found = false;
 				for (auto result = newScoreboard.begin(); result != newScoreboard.end(); result++)
 				{
-					int nopsNeeded;
-					if (!result->first->CanRun(newScoreboard, nopsNeeded, currentCycle + 1))
+					int moreNopsNeeded;
+					if (!result->first->CanRun(newScoreboard, moreNopsNeeded, currentCycle + nopsNeeded + 1))
 						assert(!"not found in scoreboard\n");
 
-					if (nopsNeeded > nops)
-						nops = nopsNeeded;
+					if (moreNopsNeeded > nops)
+						nops = moreNopsNeeded;
 
 					if (*final == result->first)
 						found = true;
@@ -253,8 +256,6 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 			for (auto count = 0; count < nops; count++)
 				newRunInstructions.push_back(&s_rSpareNop);
 
-			found_solutions++;
-
 			auto size = newRunInstructions.size();
 
 			if (rFoundSchedule)
@@ -263,12 +264,16 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 					return;			//not worth it
 				else
 				{
+					found_solutions++;
+
 					rBestSchedule = newRunInstructions;
 					return;
 				}
 			}
 			else
 			{
+				found_solutions++;
+
 				rBestSchedule = newRunInstructions;
 				rFoundSchedule = true;
 				return;
@@ -299,7 +304,7 @@ void Schedule(std::list<DependencyProvider *> runInstructions, std::list<Depende
 					rBestSchedule, rFoundSchedule,
 					branchInserted ? branchInserted : isBranch,
 					newDelaySlotsToFill,
-					currentCycle + 1);
+					currentCycle + nopsNeeded + 1);
 		}
 	}
 }
