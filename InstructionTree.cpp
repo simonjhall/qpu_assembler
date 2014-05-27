@@ -710,6 +710,9 @@ int RaRbDependency::CyclesStalled(Register& rReg)
 	if (id >= 0 && id < 32)
 		return 2;
 
+	if (id == 38)			//elem num and qpu num
+		return 1;
+
 	if (id == 48)			//vpm_read takes at least three cycles
 		return 3;
 
