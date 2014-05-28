@@ -186,10 +186,10 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 			if (pDestM->GetId() == 50 && pDestM->GetLocation() == Register::kRa)		//vpm_ld_addr, so we are dependent on dma set-up
 				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRa, 49)));
 
-			if (pDestA->GetId() == 50 && pDestA->GetLocation() == Register::kRb)		//vpm_st_addr, so we are dependent on dma set-up
+			if (pDestM->GetId() == 50 && pDestM->GetLocation() == Register::kRb)		//vpm_st_addr, so we are dependent on dma set-up
 				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRb, 49)));
 
-			if (pDestA->GetId() == 48 && pDestA->GetLocation() == Register::kRa)		//wra_dat, so dep on vpm set-up
+			if (pDestM->GetId() == 48 && pDestM->GetLocation() == Register::kRa)		//wra_dat, so dep on vpm set-up
 				m_inputDeps.push_back(new RegisterDependee(*new Register(Register::kRb, 49)));
 			else
 				m_outputDeps.push_back(new RaRbDependency(*pDestM, this));				//no dep provided for wra_dat

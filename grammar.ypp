@@ -210,15 +210,18 @@ res: NOP
 					new ReorderControl(true)
 			);*/
 		}
-	| STORE_WORD addrega COMMA addrega COMMA NUM
+	| STORE_WORD addrega COMMA addrega COMMA NUM COMMA NUM
 		{
 			Register *pToStore = dynamic_cast<Register *>$2;
 			Register *pSource = dynamic_cast<Register *>$4;
 			Value *pImm = dynamic_cast<Value *>$6;
+			Value *pWordCount = dynamic_cast<Value *>$8;
 			
 			assert(pToStore);
 			assert(pSource);
 			assert(pImm);
+			assert(pWordCount);
+			assert(pWordCount->GetIntValue() >= 1 && pWordCount->GetIntValue() <= 16);
 			
 			//create a barrier
 			s_statements.push_back(
@@ -270,7 +273,7 @@ res: NOP
 					new IlInstruction(*new Register(Register::kRb, 49),			//write to vpm_vcd_wd_setup
 						*new Value((2 << 30)			//vdw dma basic setup
 								| (1 << 23)				//one row
-								| (16 << 16)			//row length of 2d block in memory
+								| (pWordCount->GetIntValue() << 16)			//row length of 2d block in memory
 								| (1 << 14)				//horizontal
 								| (0 << 3)				//X=0, Y=0,
 								| (0 << 0)),			//32-bit

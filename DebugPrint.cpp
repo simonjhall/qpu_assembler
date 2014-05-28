@@ -32,6 +32,8 @@ void BasePipeInstruction::DebugPrint(int depth)
 
 	m_rOpcode.DebugPrint(depth + 1);
 	m_rDest.DebugPrint(depth + 1);
+	if (m_pVecrot)
+		m_pVecrot->DebugPrint(depth + 2);
 	m_rSource1.DebugPrint(depth + 1);
 	m_rSource2.DebugPrint(depth + 1);
 	m_rCondition.DebugPrint(depth + 1);
@@ -299,6 +301,8 @@ void BasePipeInstruction::DebugPrintAsm(void)
 
 	printf(" ");
 	m_rDest.DebugPrintAsm(false);
+	if (m_pVecrot)
+		printf(" vecrot %d", m_pVecrot->GetEncodedValue() - 48);
 	printf(", ");
 
 	m_rSource1.DebugPrintAsm(true);
