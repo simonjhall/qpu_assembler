@@ -25,15 +25,17 @@ std::list<Base *> s_statements, s_statementsRescheduled;
 %token <p> NUM
 %token <p> OPA OPM LP RP SEMICOLON COMMA
 %type  <p>  res
-%type <p> left right signal addaluop mulaluop adddestreg addrega addregb muldestreg mulrega mulregb ra_reg rb_reg acc_reg smallimm addsecondarg mulsecondarg setflags instcond optinstcond il brcond optabsolute valueorlabel
+%type <p> left right signal addaluop mulaluop adddestreg addrega addregb muldestreg mulrega mulregb ra_reg rb_reg acc_reg smallimm addsecondarg mulsecondarg setflags instcond optinstcond il brcond optabsolute valueorlabel vecrot
 
 %token <p> ADDNOP FADD FSUB FMIN FMAX FMINABS FMAXABS FTOI ITOF ADD SUB SHR ASR ROR SHL MIN MAX AND OR XOR NOT CLZ ADDV8ADDS ADDV8SUBSS
 %token <p> MULNOP FMUL MUL24 V8MULD V8MIN V8MAX MULV8ADDS MULV8SUBS
-%token <p> NEVER AL ZS ZC NS NC CS CC
-%token <p> ALLZS ALLZC ANYZS ANYZC ALLNS ALLNC ANYNS ANYNC ALLCS ALLCC ANYCS ANYCC
 %token <p> IL BR
 %token <p> SEM INC DEC
-%token <p> SETFLAGS ABSOLUTE
+
+%token <p> NEVER AL ZS ZC NS NC CS CC
+%token <p> ALLZS ALLZC ANYZS ANYZC ALLNS ALLNC ANYNS ANYNC ALLCS ALLCC ANYCS ANYCC
+
+%token <p> SETFLAGS ABSOLUTE VECROT
 %token <p> BREAKPOINT NOSIGNAL THREADSWITCH PROGRAMEND SCOREBOARDWAIT SCOREBOARDUNLOCK LASTHREADSWITCH COVERAGELOAD COLOURLOAD COLOURLOADPE LOADTMU0 LOADTMU1 ALPHAMASKLOAD SMALLIMMORVECROT LOADIMM BRANCH
 %token <p> RA_REG RB_REG ACC_REG
 %token <p> LABEL_DEF LABEL_TARGET
@@ -41,6 +43,7 @@ std::list<Base *> s_statements, s_statementsRescheduled;
 
 %token <p> NOP MOV
 %token <p> LOAD_WORD STORE_WORD
+%token <p> REORDER_BEGIN REORDER_END
 
 %token <p> UNIFRA UNIFRB
 %token <p> NOPRA NOPRB NOPWA NOPWB
@@ -51,7 +54,6 @@ std::list<Base *> s_statements, s_statementsRescheduled;
 %token <p> VPMRAWAIT VPMRBWAIT
 %token <p> VPMWAADDR VPMWBADDR
 %token <p> ELEMRA QPURB
-%token <p> REORDER_BEGIN REORDER_END
 
 //-- GRAMMAR RULES ---------------------------------------
 %%
@@ -143,7 +145,7 @@ res: NOP
 			//write load address and trigger load
 			{
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
-						*new Register(Register::kRa, 50), *pSource, *new SmallImm(*pImm),				//vpm_ld_addr = pSource + imm
+						*new Register(Register::kRa, 50), *pSource, *new SmallImm(*pImm, false),				//vpm_ld_addr = pSource + imm
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
@@ -280,7 +282,7 @@ res: NOP
 			//write store address and trigger load
 			{
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
-						*new Register(Register::kRb, 50), *pSource, *new SmallImm(*pImm),				//vpm_st_addr = pSource + imm
+						*new Register(Register::kRb, 50), *pSource, *new SmallImm(*pImm, false),				//vpm_st_addr = pSource + imm
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
@@ -580,25 +582,28 @@ left: addaluop setflags optinstcond adddestreg COMMA addrega COMMA addsecondarg
 		delete pFlags;
 	}
 
-right: mulaluop setflags optinstcond muldestreg COMMA mulrega COMMA mulsecondarg
+right: mulaluop setflags optinstcond muldestreg vecrot COMMA mulrega COMMA mulsecondarg
 	{
 		Opcode *pOp = dynamic_cast<Opcode *>$1;
 		Value *pFlags = dynamic_cast<Value *>$2;
 		InstructionCondition *pCc = dynamic_cast<InstructionCondition *>$3;
 		Register *pDest = dynamic_cast<Register *>$4;
-		Register *pSource1 = dynamic_cast<Register *>$6;
-		SecondSource *pSource2 = dynamic_cast<SecondSource *>$8;
+		SmallImm *pVecrot = dynamic_cast<SmallImm *>$5;
+		Register *pSource1 = dynamic_cast<Register *>$7;
+		SecondSource *pSource2 = dynamic_cast<SecondSource *>$9;
 		
 		assert(pOp);
 		assert(pFlags);
 		assert(pCc);
 		assert(pDest);
+		if ($5)
+			assert(pVecrot);
 		assert(pSource1);
 		assert(pSource2);
 		assert(pFlags->GetIntValue() == 1 || pFlags->GetIntValue() == 0);
 		
 		$$ = new MulPipeInstruction(*pOp, *pDest, *pSource1, *pSource2,
-				*pCc,
+				pVecrot, *pCc,
 				pFlags->GetIntValue() ? true : false);
 		
 		delete pFlags;
@@ -647,7 +652,7 @@ addsecondarg: addregb
 	{
 		Value *pImm = dynamic_cast<Value *>$1;
 		assert(pImm);
-		$$ = new SmallImm(*pImm);
+		$$ = new SmallImm(*pImm, false);
 	}
 
 mulsecondarg: mulregb
@@ -655,8 +660,16 @@ mulsecondarg: mulregb
 	{
 		Value *pImm = dynamic_cast<Value *>$1;
 		assert(pImm);
-		$$ = new SmallImm(*pImm);
+		$$ = new SmallImm(*pImm, false);
 	}
+
+vecrot: VECROT NUM
+		{
+			Value *pImm = dynamic_cast<Value *>$2;
+			assert(pImm);
+			$$ = new SmallImm(*pImm, true);
+		}
+		| { $$ = 0; }
 
 adddestreg: ra_reg | rb_reg | acc_reg | NOPWA | NOPWB | VPMWA | VPMWB | VPMWASETUP | VPMWBSETUP | VPMWAADDR | VPMWBADDR | ACC0WA | ACC0WB | ACC1WA | ACC1WB | ACC2WA | ACC2WB | ACC3WA | ACC3WB | ACC5WA | ACC5WB
 

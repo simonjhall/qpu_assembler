@@ -243,6 +243,14 @@ void BasePipeInstruction::AssembleAs(Fields& rFields, bool aluPipe)
 	Register *r = dynamic_cast<Register *>(&m_rSource2);
 	SmallImm *i = dynamic_cast<SmallImm *>(&m_rSource2);
 
+	//check for vector rotation
+	if (m_pVecrot)
+	{
+		assert(m_rSource1.GetLocation() == Register::kAcc && r && r->GetLocation() == Register::kAcc);
+		rFields.push_back(Field(12, 63, m_pVecrot->GetEncodedValue()));
+		rFields.push_back(Field(60, 15, kSmallImmOrVecRot));
+	}
+
 	if (r && !i)
 	{
 		if (r->GetLocation() == Register::kRa)
@@ -309,47 +317,57 @@ unsigned int Opcode::GetEncodedValue(void)
 
 unsigned int SmallImm::GetEncodedValue(void)
 {
-	if (m_rValue.m_denom == 1)
+	if (m_vecrot)
 	{
-		switch(m_rValue.m_num)
-		{
-		case 1: return 32;
-		case 2: return 33;
-		case 4: return 34;
-		case 8: return 35;
-		case 16: return 36;
-		case 32: return 37;
-		case 64: return 38;
-		case 128: return 39;
-		default: assert(0);
-		}
+		assert(m_rValue.m_denom == 0);
+		int value = m_rValue.GetIntValue();
+		assert(value >= 1 && value <= 15);
+		return value + 48;
 	}
-	else if (m_rValue.m_denom == 0)
+	else
 	{
-		if (m_rValue.m_value >= 0 && m_rValue.m_value < 16)
-			return m_rValue.m_value;
-		else if (m_rValue.m_value >= -16 && m_rValue.m_value < 0)
-			return m_rValue.m_value;
+		if (m_rValue.m_denom == 1)
+		{
+			switch(m_rValue.m_num)
+			{
+			case 1: return 32;
+			case 2: return 33;
+			case 4: return 34;
+			case 8: return 35;
+			case 16: return 36;
+			case 32: return 37;
+			case 64: return 38;
+			case 128: return 39;
+			default: assert(0);
+			}
+		}
+		else if (m_rValue.m_denom == 0)
+		{
+			if (m_rValue.m_value >= 0 && m_rValue.m_value < 16)
+				return m_rValue.m_value;
+			else if (m_rValue.m_value >= -16 && m_rValue.m_value < 0)
+				return m_rValue.m_value;
+			else
+				assert(0);
+		}
+		else if (m_rValue.m_num == 1)
+		{
+			switch(m_rValue.m_denom)
+			{
+			case 2: return 47;
+			case 4: return 46;
+			case 8: return 45;
+			case 16: return 44;
+			case 32: return 43;
+			case 64: return 42;
+			case 128: return 41;
+			case 256: return 40;
+			default: assert(0);
+			}
+		}
 		else
 			assert(0);
 	}
-	else if (m_rValue.m_num == 1)
-	{
-		switch(m_rValue.m_denom)
-		{
-		case 2: return 47;
-		case 4: return 46;
-		case 8: return 45;
-		case 16: return 44;
-		case 32: return 43;
-		case 64: return 42;
-		case 128: return 41;
-		case 256: return 40;
-		default: assert(0);
-		}
-	}
-	else
-		assert(0);
 
 	//keep the compiler happy
 	return 0;

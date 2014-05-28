@@ -387,7 +387,7 @@ protected:
 class SmallImm : public SecondSource, public Assemblable
 {
 public:
-	SmallImm(Value &);
+	SmallImm(Value &, bool vecrot);
 	virtual ~SmallImm();
 
 	virtual void DebugPrint(int depth);
@@ -396,6 +396,7 @@ public:
 
 private:
 	Value &m_rValue;
+	bool m_vecrot;
 };
 
 class Opcode : public Base, public Assemblable
@@ -425,7 +426,7 @@ class AluSignal;
 class BasePipeInstruction : public Base, public Assemblable
 {
 public:
-	BasePipeInstruction(Opcode &, Register &, Register &, SecondSource &, InstructionCondition &, bool setFlags);
+	BasePipeInstruction(Opcode &, Register &, Register &, SecondSource &, SmallImm *, InstructionCondition &, bool setFlags);
 	virtual ~BasePipeInstruction();
 
 	virtual void DebugPrint(int depth);
@@ -491,6 +492,7 @@ protected:
 	Register &m_rSource1;
 	SecondSource &m_rSource2;
 	InstructionCondition &m_rCondition;
+	SmallImm *m_pVecrot;
 	bool m_setFlags;
 };
 
@@ -509,7 +511,7 @@ private:
 class MulPipeInstruction : public BasePipeInstruction
 {
 public:
-	MulPipeInstruction(Opcode &, Register &, Register &, SecondSource &, InstructionCondition&, bool setFlags);
+	MulPipeInstruction(Opcode &, Register &, Register &, SecondSource &, SmallImm *pVecrot, InstructionCondition&, bool setFlags);
 	virtual ~MulPipeInstruction();
 
 	virtual void Assemble(Fields &rFields);

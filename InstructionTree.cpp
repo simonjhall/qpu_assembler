@@ -97,12 +97,14 @@ Opcode::Opcode(MulOp op)
 }
 
 BasePipeInstruction::BasePipeInstruction(Opcode& rOp, Register& rDest,
-		Register& rSource1, SecondSource& rSource2, InstructionCondition &rCondition, bool setFlags)
+		Register& rSource1, SecondSource& rSource2,
+		SmallImm *pVecrot, InstructionCondition &rCondition, bool setFlags)
 : m_rOpcode(rOp),
   m_rDest(rDest),
   m_rSource1(rSource1),
   m_rSource2(rSource2),
   m_rCondition(rCondition),
+  m_pVecrot(pVecrot),
   m_setFlags(setFlags)
 {
 }
@@ -113,7 +115,7 @@ BasePipeInstruction::~BasePipeInstruction()
 
 AddPipeInstruction::AddPipeInstruction(Opcode& rOp, Register& rDest,
 		Register& rSource1, SecondSource& rSource2, InstructionCondition &rCondition, bool setFlags)
-: BasePipeInstruction(rOp, rDest, rSource1, rSource2, rCondition, setFlags)
+: BasePipeInstruction(rOp, rDest, rSource1, rSource2, 0, rCondition, setFlags)
 {
 }
 
@@ -122,8 +124,9 @@ AddPipeInstruction::~AddPipeInstruction()
 }
 
 MulPipeInstruction::MulPipeInstruction(Opcode& rOp, Register& rDest,
-		Register& rSource1, SecondSource& rSource2, InstructionCondition &rCondition, bool setFlags)
-: BasePipeInstruction(rOp, rDest, rSource1, rSource2, rCondition, setFlags)
+		Register& rSource1, SecondSource& rSource2,
+		SmallImm *pVecrot, InstructionCondition &rCondition, bool setFlags)
+: BasePipeInstruction(rOp, rDest, rSource1, rSource2, pVecrot, rCondition, setFlags)
 {
 }
 
@@ -236,7 +239,7 @@ MulPipeInstruction& BasePipeInstruction::GenerateCompatibleInstruction(
 		AddPipeInstruction& rValid)
 {
 	return *new MulPipeInstruction(*new Opcode(kMulNop), *new Register(Register::kAcc, 0), rValid.m_rSource1, rValid.m_rSource2,
-			*new InstructionCondition(kNever), false);
+			0, *new InstructionCondition(kNever), false);
 }
 
 AddPipeInstruction& BasePipeInstruction::GenerateCompatibleInstruction(
@@ -272,8 +275,9 @@ SecondSource::~SecondSource()
 {
 }
 
-SmallImm::SmallImm(Value& rValue)
-: m_rValue(rValue)
+SmallImm::SmallImm(Value& rValue, bool vecrot)
+: m_rValue(rValue),
+  m_vecrot(vecrot)
 {
 }
 
@@ -692,6 +696,7 @@ MulPipeInstruction& MulPipeInstruction::Nop(void)
 					*new Register(Register::kAcc, 0),
 					*new Register(Register::kAcc, 0),
 					*new Register(Register::kAcc, 0),
+					0,
 					*new InstructionCondition(kNever),
 					false);
 }

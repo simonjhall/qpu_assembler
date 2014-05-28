@@ -199,6 +199,8 @@ vpm_st_addr	{ yylval.p = new Register(Register::kRb, 50); return VPMWBADDR; }
 "mulv8adds"	{ yylval.p = new Opcode(kV8addsMul); return MULV8ADDS; }
 "mulv8subs"	{ yylval.p = new Opcode(kV8subsMul); return MULV8SUBS; }
 
+"vecrot"	{ return VECROT; }
+
 "Breakpoint"		{ yylval.p = new AluSignal(kBreakpoint); return BREAKPOINT; }
 "NoSignal"			{ yylval.p = new AluSignal(kNoSignal); return NOSIGNAL; }
 "ThreadSwitch"		{ yylval.p = new AluSignal(kThreadSwitch); return THREADSWITCH; }
