@@ -571,6 +571,7 @@ public:
 	virtual void DebugPrintAsm(void);
 
 	virtual void GetOutputDeps(DependencyBase::Dependencies &);
+	virtual void GetInputDeps(Dependee::Dependencies &rDeps);
 
 private:
 	Register &m_rDest;

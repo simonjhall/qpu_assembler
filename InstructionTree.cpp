@@ -156,6 +156,9 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 
 	if (pDestA && !pDestA->IsZero())
 	{
+		if (m_rLeft.GetUsesFlags())
+			m_inputDeps.push_back(new RegisterDependee(*pDestA));
+
 		if (pDestA->GetLocation() == Register::kAcc)
 			m_outputDeps.push_back(new AccDependency(*pDestA, this));
 		else
@@ -177,6 +180,9 @@ AluInstruction::AluInstruction(AddPipeInstruction& rLeft,
 
 	if (pDestM && !pDestM->IsZero())
 	{
+		if (m_rRight.GetUsesFlags())
+			m_inputDeps.push_back(new RegisterDependee(*pDestM));
+
 		if (pDestM->GetLocation() == Register::kAcc)
 			m_outputDeps.push_back(new AccDependency(*pDestM, this));
 		else
@@ -312,6 +318,12 @@ IlInstruction::IlInstruction(Register& rDest, Value& rImmediate,
 {
 	m_rImmediate.SetSize(4);
 
+	if (m_rCondition.GetEncodedValue() != kAlways)
+	{
+		m_inputDeps.push_back(new FlagsDependee());
+		m_inputDeps.push_back(new RegisterDependee(m_rDest));
+	}
+
 	//output deps
 	if (m_rDest.GetLocation() == Register::kAcc)
 		m_outputDeps.push_back(new AccDependency(m_rDest, this));
@@ -378,7 +390,14 @@ BranchInstruction::BranchInstruction(bool absolute, BrCondition& rCond,
 	}
 
 	if (m_rCondition.GetEncodedValue() != kAlwaysBr)
+	{
 		m_inputDeps.push_back(new FlagsDependee());
+
+		if (!m_rDestA.IsZero())
+			m_inputDeps.push_back(new RegisterDependee(m_rDestA));
+		if (!m_rDestM.IsZero())
+			m_inputDeps.push_back(new RegisterDependee(m_rDestM));
+	}
 }
 
 BranchInstruction::BranchInstruction(bool absolute, BrCondition& rCond,
@@ -407,7 +426,14 @@ BranchInstruction::BranchInstruction(bool absolute, BrCondition& rCond,
 	}
 
 	if (m_rCondition.GetEncodedValue() != kAlwaysBr)
+	{
 		m_inputDeps.push_back(new FlagsDependee());
+
+		if (!m_rDestA.IsZero())
+			m_inputDeps.push_back(new RegisterDependee(m_rDestA));
+		if (!m_rDestM.IsZero())
+			m_inputDeps.push_back(new RegisterDependee(m_rDestM));
+	}
 }
 
 BranchInstruction::~BranchInstruction()
@@ -530,6 +556,11 @@ bool ReorderControl::IsEnd(void)
 }
 
 void AluInstruction::GetInputDeps(Dependee::Dependencies &rDeps)
+{
+	rDeps = m_inputDeps;
+}
+
+void IlInstruction::GetInputDeps(Dependee::Dependencies& rDeps)
 {
 	rDeps = m_inputDeps;
 }
@@ -743,3 +774,5 @@ DependencyBase& FlagsDependee::CreateDummySatisficer(void)
 {
 	return *new FlagsDependency(new BbDepProvider());
 }
+
+
