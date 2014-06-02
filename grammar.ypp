@@ -107,7 +107,7 @@ res: NOP
 		
 		delete pFlags;
 	}
-	| LOAD_WORD adddestreg COMMA addrega COMMA NUM
+	| LOAD_WORD adddestreg COMMA addrega COMMA valueorlabel
 		{
 			Register *pDest = dynamic_cast<Register *>$2;
 			Register *pSource = dynamic_cast<Register *>$4;
@@ -116,6 +116,8 @@ res: NOP
 			assert(pDest);
 			assert(pSource);
 			assert(pImm);
+			
+			bool isLabel = dynamic_cast<Label *>$6 ? true : false;
 			
 			//create a barrier
 			s_statements.push_back(
@@ -143,9 +145,28 @@ res: NOP
 			}
 		
 			//write load address and trigger load
+			if (!isLabel && pImm->GetIntValue() >= -16 && pImm->GetIntValue() <= 15)
 			{
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
 						*new Register(Register::kRa, 50), *pSource, *new SmallImm(*pImm, false),				//vpm_ld_addr = pSource + imm
+						*new InstructionCondition(kAlways), false);
+				s_statements.push_back(
+						new AluInstruction(rLeft,
+								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+								AluSignal::DefaultSignal())
+				);
+			}
+			else
+			{
+				Register *pAt = new Register(Register::kRb, 30);
+				s_statements.push_back(
+					new IlInstruction(*pAt,			//write to AT
+						*pImm,
+						*new InstructionCondition(kAlways),
+						false)
+				);
+				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
+						*new Register(Register::kRa, 50), *pSource, *pAt,				//vpm_ld_addr = pSource + imm
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
@@ -192,14 +213,44 @@ res: NOP
 			//move from vpm read dat to dest
 			//wait for the dma to complete
 			{
-				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kOr),
-						*pDest, *new Register(Register::kRa, 48), *new Register(Register::kRa, 48), //dest = rda_vpm_dat | rda_vpm_dat
-						*new InstructionCondition(kAlways), false);
-				s_statements.push_back(
-						new AluInstruction(rLeft,
-								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
-								AluSignal::DefaultSignal())
-				);
+				//need to broadcast loads to lr
+				if (pDest->GetLocation() == Register::kRa && pDest->GetId() == 31)
+				{
+					Register *pAcc5 = new Register(Register::kAcc, 5);
+					
+					MulPipeInstruction &rRight = *new MulPipeInstruction(*new Opcode(kV8min),
+							*pAcc5, *new Register(Register::kRa, 48), *new Register(Register::kRa, 48), //acc5 = rda_vpm_dat | rda_vpm_dat
+							0,
+							*new InstructionCondition(kAlways), false);
+					
+					s_statements.push_back(
+							new AluInstruction(BasePipeInstruction::GenerateCompatibleInstruction(rRight),
+									rRight,
+									AluSignal::DefaultSignal())
+					);
+					
+					AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kOr),
+							*pDest, *pAcc5, *pAcc5, 													//lr = acc5 | accc5
+							*new InstructionCondition(kAlways), false);
+					
+					s_statements.push_back(
+							new AluInstruction(rLeft,
+									BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+									AluSignal::DefaultSignal())
+					);
+				}
+				else
+				{
+					AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kOr),
+							*pDest, *new Register(Register::kRa, 48), *new Register(Register::kRa, 48), //dest = rda_vpm_dat | rda_vpm_dat
+							*new InstructionCondition(kAlways), false);
+					
+					s_statements.push_back(
+							new AluInstruction(rLeft,
+									BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+									AluSignal::DefaultSignal())
+					);
+				}
 			}
 			
 			//create a barrier (to prevent something getting written into pDest)
@@ -210,7 +261,7 @@ res: NOP
 					new ReorderControl(true)
 			);*/
 		}
-	| STORE_WORD addrega COMMA addrega COMMA NUM COMMA NUM
+	| STORE_WORD addrega COMMA addrega COMMA NUM COMMA valueorlabel
 		{
 			Register *pToStore = dynamic_cast<Register *>$2;
 			Register *pSource = dynamic_cast<Register *>$4;
@@ -222,6 +273,8 @@ res: NOP
 			assert(pImm);
 			assert(pWordCount);
 			assert(pWordCount->GetIntValue() >= 1 && pWordCount->GetIntValue() <= 16);
+			
+			bool isLabel = dynamic_cast<Label *>$6 ? true : false;
 			
 			//create a barrier
 			s_statements.push_back(
@@ -283,9 +336,28 @@ res: NOP
 			}
 		
 			//write store address and trigger load
+			if (!isLabel && pImm->GetIntValue() >= -16 && pImm->GetIntValue() <= 15)
 			{
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
 						*new Register(Register::kRb, 50), *pSource, *new SmallImm(*pImm, false),				//vpm_st_addr = pSource + imm
+						*new InstructionCondition(kAlways), false);
+				s_statements.push_back(
+						new AluInstruction(rLeft,
+								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+								AluSignal::DefaultSignal())
+				);
+			}
+			else
+			{
+				Register *pAt = new Register(Register::kRb, 30);
+				s_statements.push_back(
+					new IlInstruction(*pAt,			//write to AT
+						*pImm,
+						*new InstructionCondition(kAlways),
+						false)
+				);
+				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
+						*new Register(Register::kRb, 50), *pSource, *pAt,				//vpm_st_addr = pSource + imm
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
