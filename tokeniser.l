@@ -36,8 +36,24 @@ union
 					} while (*p == ' ' || *p == '\t');
 					yylval.p = new Label(p, true); return LABEL_DEF;
 				}
+"\.weak".*$		{
+					char *p = yytext;
+					//find globl
+					p = strstr(yytext, ".weak");
+					assert(p);
+					//move to whitespace
+					p += 5;
+					assert(*p == ' ' || *p == '\t');
+					do
+					{
+						p++;
+					} while (*p == ' ' || *p == '\t');
+					yylval.p = new Label(p, true); return LABEL_DEF;
+				}
 "\.type".*$	{}
 "\.size".*$	{}
+"\.section".*$	{}
+
 
 "\.set"[ \t]+"reorder".*$	{ return REORDER_BEGIN; }
 "\.set"[ \t]+"noreorder".*$	{ return REORDER_END; }
@@ -72,8 +88,8 @@ union
 [ \t\n]+ { }
 "s"			{ return SETFLAGS; }
 "a"			{ return ABSOLUTE; }
-^[a-zA-Z$][a-zA-Z0-9_]*:	{ yylval.p = new Label(yytext, true); return LABEL_DEF; }
-\#[a-zA-Z$][a-zA-Z0-9_]*\#	{ yylval.p = new Label(yytext, false); return LABEL_TARGET; }
+^[_a-zA-Z$][a-zA-Z0-9_]*:	{ yylval.p = new Label(yytext, true); return LABEL_DEF; }
+\#[_a-zA-Z$][a-zA-Z0-9_]*\#	{ yylval.p = new Label(yytext, false); return LABEL_TARGET; }
 .        { printf("Unrecognized token! \"%s\"\n", yytext); exit(1); }
 
 "never"		{ yylval.p = new InstructionCondition(kNever); return NEVER; }
@@ -92,6 +108,7 @@ ra[0-9]+	{ yylval.p = new Register(Register::kRa, atoi(yytext + 2)); return RA_R
 rb[0-9]+	{ yylval.p = new Register(Register::kRb, atoi(yytext + 2)); return RB_REG; }
 acc[0-5]	{ yylval.p = new Register(Register::kAcc, atoi(yytext + 3)); return ACC_REG; }
 
+at			{ yylval.p = new Register(Register::kRb, 30); return RB_REG; }
 gp			{ yylval.p = new Register(Register::kRa, 28); return RA_REG; }
 fp			{ yylval.p = new Register(Register::kRa, 29); return RA_REG; }
 sp			{ yylval.p = new Register(Register::kRa, 30); return RA_REG; }
