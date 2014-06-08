@@ -1,0 +1,27 @@
+start:
+	il sp, 0x88cbff0
+	il gp, 0
+	bla ra31, wrb_nop, #entry#
+	or acc0, acc0, acc0; ProgramEnd
+	or acc0, acc0, acc0
+	or acc0, acc0, acc0
+
+space:
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678
+	.word 0x12345678

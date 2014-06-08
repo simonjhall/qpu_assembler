@@ -349,6 +349,7 @@ int main(int argc, const char *argv[])
 	do
 	{
 		std::list<DependencyBase *> finalScoreboard, dummies;
+//		reordering = false;
 		auto next_start = BuildDeps(start, finalScoreboard, reordering, dummies);
 		EmitNonInstructions(start, next_start);
 

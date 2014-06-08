@@ -23,7 +23,7 @@ Base::~Base()
 {
 }
 
-Value::Value(int v)
+Value::Value(long long v)
 : m_value(v),
   m_num(0),
   m_denom(0),

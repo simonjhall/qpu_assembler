@@ -7,6 +7,9 @@
 #include "shared.h"
 using namespace std;
 
+//needs to be in sync with the grammar
+#define AT 27
+
 union
 {
 	float f;
@@ -79,9 +82,9 @@ union
 "1/2"		{ yylval.p = new Value(1, 2); return NUM; }
 [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?f	{ swappa.f = std::stof(yytext); yylval.p = new Value(swappa.i); ((Value *)yylval.p)->SetAsFloat(); return NUM; }
 
-[0-9]+		{ yylval.p = new Value(atoi(yytext)); return NUM; }
+[0-9]+		{ yylval.p = new Value(atoll(yytext)); return NUM; }
 0x[0-9a-f]+   { yylval.p = new Value(strtoll(yytext + 2, 0 , 16)); return NUM; }
-\-[0-9]+   { yylval.p = new Value(atoi(yytext)); return NUM; }
+\-[0-9]+   { yylval.p = new Value(atoll(yytext)); return NUM; }
 ";"      { return SEMICOLON; }
 ","      { return COMMA; }
 <<EOF>>  { return 0; }
@@ -108,7 +111,7 @@ ra[0-9]+	{ yylval.p = new Register(Register::kRa, atoi(yytext + 2)); return RA_R
 rb[0-9]+	{ yylval.p = new Register(Register::kRb, atoi(yytext + 2)); return RB_REG; }
 acc[0-5]	{ yylval.p = new Register(Register::kAcc, atoi(yytext + 3)); return ACC_REG; }
 
-at			{ yylval.p = new Register(Register::kRb, 30); return RB_REG; }
+at			{ yylval.p = new Register(Register::kRb, AT); return RB_REG; }
 gp			{ yylval.p = new Register(Register::kRa, 28); return RA_REG; }
 fp			{ yylval.p = new Register(Register::kRa, 29); return RA_REG; }
 sp			{ yylval.p = new Register(Register::kRa, 30); return RA_REG; }
@@ -159,6 +162,7 @@ vpm_st_addr	{ yylval.p = new Register(Register::kRb, 50); return VPMWBADDR; }
 
 "load_word"	{ return LOAD_WORD; }
 "store_word" { return STORE_WORD; }
+"lea" { return LEA; }
 
 "sem"		{ return SEM; }
 "inc"		{ return INC; }

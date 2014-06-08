@@ -114,7 +114,7 @@ class Value : public Base, public Assemblable
 {
 	friend class SmallImm;
 public:
-	Value(int);
+	Value(long long);
 	Value(int numerator, int denominator);
 	virtual ~Value();
 
@@ -128,7 +128,7 @@ public:
 	void SetAsFloat(void);
 
 protected:
-	int m_value;
+	long long m_value;
 	int m_num, m_denom;
 
 	int m_byteCount;

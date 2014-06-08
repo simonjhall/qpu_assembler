@@ -45,7 +45,7 @@ void Value::DebugPrint(int depth)
 		printf("\t");
 
 	if (m_denom == 0)
-		printf("value: %d, size: %d\n", m_value, m_byteCount);
+		printf("value: %lld, size: %d\n", m_value, m_byteCount);
 	else
 		printf("value: %d / %d, size: %d\n", m_num, m_denom, m_byteCount);
 }

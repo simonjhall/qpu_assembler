@@ -17,6 +17,8 @@ int yyerror(const char *p) { printf("Parse error!, \"%s\"\n", p); return 0; }
 
 std::list<Base *> s_statements, s_statementsRescheduled;
 
+#define AT 27
+
 %}
 
 %union {
@@ -42,7 +44,7 @@ std::list<Base *> s_statements, s_statementsRescheduled;
 %token <p> WORD SHORT BYTE
 
 %token <p> NOP MOV
-%token <p> LOAD_WORD STORE_WORD
+%token <p> LOAD_WORD STORE_WORD LEA
 %token <p> REORDER_BEGIN REORDER_END
 
 %token <p> UNIFRA UNIFRB
@@ -147,8 +149,30 @@ res: NOP
 			//write load address and trigger load
 			if (!isLabel && pImm->GetIntValue() >= -16 && pImm->GetIntValue() <= 15)
 			{
+				Register *p = pSource;
+				
+				//we can't do dest = rb OP imm, only ra OP imm so go via AT-A
+				if (pSource->GetLocation() == Register::kRb)
+				{
+					Register *pAt = new Register(Register::kRa, AT);
+					
+					AddPipeInstruction *pLeft = new AddPipeInstruction(*new Opcode(kOr),
+							*pAt,
+							*pSource,
+							*pSource,
+							*new InstructionCondition(kAlways),
+							false);
+					
+					$$ = new AluInstruction(*pLeft,
+							BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+							AluSignal::DefaultSignal());
+					s_statements.push_back($$);
+					
+					p = pAt;
+				}
+				
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
-						*new Register(Register::kRa, 50), *pSource, *new SmallImm(*pImm, false),				//vpm_ld_addr = pSource + imm
+						*new Register(Register::kRa, 50), *p, *new SmallImm(*pImm, false),				//vpm_ld_addr = pSource + imm
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
@@ -158,15 +182,37 @@ res: NOP
 			}
 			else
 			{
-				Register *pAt = new Register(Register::kRb, 30);
+				Register *p = pSource;
+				
+				//go via AT-A if source is in rb
+				if (pSource->GetLocation() == Register::kRb)
+				{
+					Register *pAtA = new Register(Register::kRa, AT);
+					
+					AddPipeInstruction *pLeft = new AddPipeInstruction(*new Opcode(kOr),
+							*pAtA,
+							*pSource,
+							*pSource,
+							*new InstructionCondition(kAlways),
+							false);
+					
+					$$ = new AluInstruction(*pLeft,
+							BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+							AluSignal::DefaultSignal());
+					s_statements.push_back($$);
+					
+					p = pAtA;
+				}
+				
+				Register *pAtB = new Register(Register::kRb, AT);
 				s_statements.push_back(
-					new IlInstruction(*pAt,			//write to AT
+					new IlInstruction(*pAtB,			//write to AT
 						*pImm,
 						*new InstructionCondition(kAlways),
 						false)
 				);
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
-						*new Register(Register::kRa, 50), *pSource, *pAt,				//vpm_ld_addr = pSource + imm
+						*new Register(Register::kRa, 50), *p, *pAtB,				//vpm_ld_addr = pSource + AT
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
@@ -338,8 +384,29 @@ res: NOP
 			//write store address and trigger load
 			if (!isLabel && pImm->GetIntValue() >= -16 && pImm->GetIntValue() <= 15)
 			{
+				Register *p = pSource;
+				//go via AT-A if source is in rb
+				if (pSource->GetLocation() == Register::kRb)
+				{
+					Register *pAtA = new Register(Register::kRa, AT);
+					
+					AddPipeInstruction *pLeft = new AddPipeInstruction(*new Opcode(kOr),
+							*pAtA,
+							*pSource,
+							*pSource,
+							*new InstructionCondition(kAlways),
+							false);
+					
+					$$ = new AluInstruction(*pLeft,
+							BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+							AluSignal::DefaultSignal());
+					s_statements.push_back($$);
+					
+					p = pAtA;
+				}
+				
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
-						*new Register(Register::kRb, 50), *pSource, *new SmallImm(*pImm, false),				//vpm_st_addr = pSource + imm
+						*new Register(Register::kRb, 50), *p, *new SmallImm(*pImm, false),				//vpm_st_addr = pSource + imm
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
@@ -349,15 +416,36 @@ res: NOP
 			}
 			else
 			{
-				Register *pAt = new Register(Register::kRb, 30);
+				Register *p = pSource;
+				//go via AT-A if source is in rb
+				if (pSource->GetLocation() == Register::kRb)
+				{
+					Register *pAtA = new Register(Register::kRa, AT);
+					
+					AddPipeInstruction *pLeft = new AddPipeInstruction(*new Opcode(kOr),
+							*pAtA,
+							*pSource,
+							*pSource,
+							*new InstructionCondition(kAlways),
+							false);
+					
+					$$ = new AluInstruction(*pLeft,
+							BasePipeInstruction::GenerateCompatibleInstruction(*pLeft),
+							AluSignal::DefaultSignal());
+					s_statements.push_back($$);
+					
+					p = pAtA;
+				}
+				
+				Register *pAtB = new Register(Register::kRb, AT);
 				s_statements.push_back(
-					new IlInstruction(*pAt,			//write to AT
+					new IlInstruction(*pAtB,			//write to AT
 						*pImm,
 						*new InstructionCondition(kAlways),
 						false)
 				);
 				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
-						*new Register(Register::kRb, 50), *pSource, *pAt,				//vpm_st_addr = pSource + imm
+						*new Register(Register::kRb, 50), *p, *pAtB,				//vpm_st_addr = pSource + AT
 						*new InstructionCondition(kAlways), false);
 				s_statements.push_back(
 						new AluInstruction(rLeft,
@@ -385,6 +473,48 @@ res: NOP
 			s_statements.push_back(
 					new ReorderControl(true)
 			);*/
+		}
+	| LEA addrega COMMA addrega COMMA valueorlabel
+		{
+			Register *pDest = dynamic_cast<Register *>$2;
+			Register *pSource = dynamic_cast<Register *>$4;
+			Value *pImm = dynamic_cast<Value *>$6;
+			
+			assert(pDest);
+			assert(pSource);
+			assert(pImm);
+			
+			bool isLabel = dynamic_cast<Label *>$6 ? true : false;
+			
+			if (!isLabel && pImm->GetIntValue() >= -16 && pImm->GetIntValue() <= 15)
+			{
+				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
+						*pDest, *pSource, *new SmallImm(*pImm, false),				//pDest = pSource + imm
+						*new InstructionCondition(kAlways), false);
+				s_statements.push_back(
+						new AluInstruction(rLeft,
+								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+								AluSignal::DefaultSignal())
+				);
+			}
+			else
+			{
+				Register *pAt = new Register(Register::kRb, AT);
+				s_statements.push_back(
+					new IlInstruction(*pAt,			//write to AT
+						*pImm,
+						*new InstructionCondition(kAlways),
+						false)
+				);
+				AddPipeInstruction &rLeft = *new AddPipeInstruction(*new Opcode(kAdd),
+						*pDest, *pSource, *pAt,				//pDest = pSource + AT
+						*new InstructionCondition(kAlways), false);
+				s_statements.push_back(
+						new AluInstruction(rLeft,
+								BasePipeInstruction::GenerateCompatibleInstruction(rLeft),
+								AluSignal::DefaultSignal())
+				);
+			}
 		}
 	| REORDER_BEGIN
 		{
